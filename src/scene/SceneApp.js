@@ -8,9 +8,10 @@ import { orbitState } from '../physics/orbit.js';
 
 import { createStarfield } from './Starfield.js';
 import { createNeutronStar } from './NeutronStar.js';
-import { createCompanion } from './Companion.js';
+import { createCompanion, noseReach } from './Companion.js';
 import { createGasStream } from './GasStream.js';
 import { createAccretionDisk } from './AccretionDisk.js';
+import { createAccretionStream } from './AccretionStream.js';
 import { createJets } from './Jets.js';
 import { createCameraRig } from './CameraRig.js';
 
@@ -45,6 +46,9 @@ export async function createSceneApp(canvas) {
 
   const accretionDisk = createAccretionDisk();
   neutronStar.object3D.add(accretionDisk.object3D); // must follow the pulsar, not sit at world origin
+
+  const accretionStream = createAccretionStream();
+  scene.add(accretionStream.object3D);
 
   const jets = createJets();
   neutronStar.object3D.add(jets.object3D);
@@ -83,6 +87,8 @@ export async function createSceneApp(canvas) {
   });
 
   const pulsarWorldPos = new THREE.Vector3();
+  const noseTip = new THREE.Vector3();
+  const diskEdge = new THREE.Vector3();
 
   function tick(dt) {
     if (state.playing) simTime += dt * state.timeScale;
@@ -107,6 +113,7 @@ export async function createSceneApp(canvas) {
 
     companion.uniforms.irradiation.value = 0.55 + smoothed.accretionBlend * 0.25;
     companion.uniforms.bulge.value = 0.2 + smoothed.accretionBlend * 0.08;
+    companion.uniforms.noseStrength.value = 0.08 + smoothed.accretionBlend * 0.45;
 
     gasStream.update(simTime, smoothed.accretionBlend, t.ablationTail ? 1 : 0);
 
@@ -118,10 +125,20 @@ export async function createSceneApp(canvas) {
     accretionDisk.uniforms.extent.value = smoothed.diskExtent;
     accretionDisk.uniforms.innerRadius.value = smoothed.diskInnerRadius;
     // The gas stream feeds the disk roughly along the pulsar-companion line.
-    accretionDisk.uniforms.streamAngle.value = Math.atan2(
-      companionPos.z - pulsar.z,
-      companionPos.x - pulsar.x
+    const streamAngle = Math.atan2(companionPos.z - pulsar.z, companionPos.x - pulsar.x);
+    accretionDisk.uniforms.streamAngle.value = streamAngle;
+
+    // Bridge the companion's tidal "nose" to the disk's current edge with a
+    // dedicated feeder-stream mesh (see AccretionStream.js).
+    const noseDist = noseReach(SCENE.companionRadius, companion.uniforms.bulge.value, companion.uniforms.noseStrength.value);
+    noseTip.set(
+      companionPos.x - Math.cos(streamAngle) * noseDist,
+      0,
+      companionPos.z - Math.sin(streamAngle) * noseDist
     );
+    const diskOuterR = accretionDisk.getOuterRadius();
+    diskEdge.set(pulsar.x + Math.cos(streamAngle) * diskOuterR, 0, pulsar.z + Math.sin(streamAngle) * diskOuterR);
+    accretionStream.update(noseTip, diskEdge, t.accretionDisk ? smoothed.diskOpacity : 0);
 
     const jetTarget = t.jets ? target.jetIntensity : 0;
     smoothed.jetIntensity = damp(smoothed.jetIntensity, jetTarget, dt, 1.0);

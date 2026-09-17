@@ -23,9 +23,10 @@ import {
 // disk truncation radius that distinguishes the high/low X-ray modes)
 // without rebuilding geometry.
 const GEOMETRY_INNER = 0.1;
-// Reaches most of the way out to the companion's orbit (~6.45 units) so the
-// disk visually connects to it, with the gas stream bridging the last gap.
-const OUTER_RADIUS_MAX = 5.6;
+// A compact disk close to the pulsar, matched to real accretion-disk
+// renders — the visual bridge to the companion is a dedicated feeder
+// stream (AccretionStream.js), not an oversized disk.
+const OUTER_RADIUS_MAX = 2.6;
 
 export function createAccretionDisk() {
   const opacity = uniform(0);
@@ -66,9 +67,9 @@ export function createAccretionDisk() {
 
     // Hot spot where the accretion stream slams into the disk's outer edge.
     const outerR = extent.mul(OUTER_RADIUS_MAX);
-    const radialNear = pow(oneMinus(clamp(abs(r.sub(outerR)).div(0.7), 0, 1)), 2);
+    const radialNear = pow(oneMinus(clamp(abs(r.sub(outerR)).div(0.35), 0, 1)), 2);
     const angularNear = pow(max(cos(angle.sub(streamAngle)), 0), 5);
-    const hotspot = radialNear.mul(angularNear).mul(2.2);
+    const hotspot = radialNear.mul(angularNear).mul(2.0);
 
     return tempColor.mul(brightnessMod).add(hot.mul(innerGlow)).add(color('#fff8ec').mul(hotspot));
   })();
@@ -87,5 +88,6 @@ export function createAccretionDisk() {
   return {
     object3D: mesh,
     uniforms: { opacity, extent, innerRadius, spinSpeed, streamAngle },
+    getOuterRadius: () => extent.value * OUTER_RADIUS_MAX,
   };
 }

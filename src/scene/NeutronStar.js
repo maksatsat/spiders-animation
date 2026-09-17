@@ -72,7 +72,7 @@ export function createNeutronStar({ radius, beamLength }) {
     const pulse = float(1).add(time.mul(9).sin().mul(0.06));
     const base = mix(color('#3d8fff'), color('#bfe0ff'), rim);
     const poleAlign = abs(dot(normalLocal, poleDir));
-    const hotspot = pow(poleAlign, 6).mul(3.5);
+    const hotspot = pow(poleAlign, 22).mul(3.5);
     return base.mul(pulse).add(color('#ffffff').mul(hotspot)).mul(pulseIntensity);
   })();
   const core = new THREE.Mesh(new THREE.IcosahedronGeometry(radius, 4), coreMaterial);

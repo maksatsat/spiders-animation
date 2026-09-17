@@ -29,6 +29,10 @@ import {
 export function createCompanion({ radius }) {
   const bulge = uniform(0.22); // tidal elongation strength, 0..~0.4
   const irradiation = uniform(0.6); // 0..1, how strongly pulsar-facing side is heated
+  // How far the pulsar-facing "nose" — the feeder-stream anchor point —
+  // pokes out beyond the general tidal bulge, in units of radius. Kept in
+  // sync with the plain-JS estimate in SceneApp (see NOSE_REACH below).
+  const noseStrength = uniform(0.1);
 
   const geometry = new THREE.SphereGeometry(radius, 96, 64);
 
@@ -42,7 +46,10 @@ export function createCompanion({ radius }) {
   material.positionNode = Fn(() => {
     const axisAlign = abs(facing); // bulge on both near AND far side (tidal stretch)
     const bulgeAmount = pow(axisAlign, float(2.5)).mul(bulge);
-    return positionLocal.add(normalLocal.mul(bulgeAmount).mul(radius));
+    // A sharp, narrow spike only on the near side — the "nose" the feeder
+    // stream visually erupts from, matching an L1-point accretion funnel.
+    const nose = pow(clamp(facing, 0, 1), 6).mul(noseStrength);
+    return positionLocal.add(normalLocal.mul(bulgeAmount.add(nose)).mul(radius));
   })();
 
   // Fine surface mottling (granulation / limb detail) so the terminator
@@ -97,6 +104,13 @@ export function createCompanion({ radius }) {
 
   return {
     object3D: mesh,
-    uniforms: { bulge, irradiation },
+    uniforms: { bulge, irradiation, noseStrength },
   };
+}
+
+// Matches the shader's peak displacement at facing=1 (bulge + nose, both in
+// units of radius) — lets SceneApp find the nose tip's world position
+// without reading back from the GPU.
+export function noseReach(radius, bulgeValue, noseStrengthValue) {
+  return radius * (1 + bulgeValue + noseStrengthValue);
 }
