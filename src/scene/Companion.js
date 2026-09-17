@@ -77,8 +77,14 @@ export function createCompanion({ radius }) {
   })();
 
   material.emissiveNode = Fn(() => {
+    // The far side receives essentially no direct light (its normal faces
+    // away from the pulsar, so standard diffuse lighting alone renders it
+    // as near-black regardless of albedo) — give it a small constant
+    // emissive floor so it reads as a dim brown surface, not black.
     const heat = smoothstep(-0.1, 0.75, facing).mul(irradiation);
-    return color('#ffb066').mul(pow(heat, 2)).mul(2.4);
+    const hotGlow = color('#ffb066').mul(pow(heat, 2)).mul(2.4);
+    const nightGlow = color('#5a3a22').mul(0.16);
+    return hotGlow.add(nightGlow);
   })();
 
   const mesh = new THREE.Mesh(geometry, material);
@@ -105,9 +111,20 @@ export function createCompanion({ radius }) {
   // irradiated hemisphere rather than a uniform bubble.
   windMaterial.positionNode = Fn(() => {
     const windFacing = normalLocal.z;
+
+    // Track the star's *actual* deformed surface (same formula as the star's
+    // own positionNode above) so the shell can never dip inside the bulge
+    // or the nose spike, whatever they're currently set to.
+    const axisAlign = abs(windFacing);
+    const starBulge = pow(axisAlign, float(2.5)).mul(bulge);
+    const starNose = pow(clamp(windFacing, 0, 1), 6).mul(noseStrength);
+    const surfaceFactor = float(1).add(starBulge).add(starNose);
+
     const t = clamp(oneMinus(windFacing).mul(0.5), 0, 1); // 0 at nose, 1 at far pole
-    const flare = pow(t, 1.25);
-    const shellR = float(1.04).add(flare.mul(1.6));
+    const flare = pow(t, 1.25).mul(1.6);
+    const margin = float(0.1);
+
+    const shellR = surfaceFactor.add(margin).add(flare);
     return positionLocal.mul(shellR);
   })();
 

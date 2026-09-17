@@ -145,6 +145,7 @@ export async function createSceneApp(canvas) {
     smoothed.jetExtent = damp(smoothed.jetExtent, Math.max(0.001, jetTarget), dt, 0.8);
     jets.setIntensity(smoothed.jetIntensity);
     jets.setExtent(smoothed.jetExtent);
+    jets.setColorMix(target.jetColorMix);
 
     starfield.rotation.y += dt * 0.0015;
 

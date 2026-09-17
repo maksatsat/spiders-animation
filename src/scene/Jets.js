@@ -21,13 +21,14 @@ function makeJet(direction, baseOffset) {
 
   const intensity = uniform(0);
   const extent = uniform(0.001);
+  const colorMix = uniform(0.55); // 0 = pure white (low mode), 0.55 = pink/white (high mode)
 
   material.colorNode = Fn(() => {
     const t = clamp(positionLocal.y.div(LENGTH), 0, 1);
     const travel = fract(t.mul(5).sub(time.mul(2.6)));
     const knot = pow(sin(travel.mul(Math.PI)), 10);
     const fade = pow(oneMinus(t), 0.7);
-    const base = mix(color('#ffffff'), color('#ff54dc'), 0.55);
+    const base = mix(color('#ffffff'), color('#ff54dc'), colorMix);
     const glow = fade.mul(0.5).add(knot.mul(fade).mul(2.2)).mul(intensity);
     return base.mul(glow);
   })();
@@ -42,7 +43,7 @@ function makeJet(direction, baseOffset) {
   const mesh = new THREE.Mesh(geometry, material);
   mesh.position.y = baseOffset * direction;
   if (direction < 0) mesh.rotation.x = Math.PI;
-  return { mesh, uniforms: { intensity, extent } };
+  return { mesh, uniforms: { intensity, extent, colorMix } };
 }
 
 export function createJets({ baseOffset = 0.4 } = {}) {
@@ -60,6 +61,10 @@ export function createJets({ baseOffset = 0.4 } = {}) {
     setExtent(v) {
       up.uniforms.extent.value = v;
       down.uniforms.extent.value = v;
+    },
+    setColorMix(v) {
+      up.uniforms.colorMix.value = v;
+      down.uniforms.colorMix.value = v;
     },
   };
 }

@@ -32,10 +32,18 @@ const OUTER_RADIUS_MAX = 2.6;
 // accretion disks do) rather than being an infinitely thin sheet. Built as
 // a lathe profile — revolved around Y, which is already the orbital-plane
 // normal in this scene, so no extra rotation is needed afterward.
-function buildFlaredProfile(innerR, outerR, segments) {
+//
+// A single lathe surface still reads as a hollow shell (you can see clean
+// through the middle from the right angle). To fake a filled, volumetric
+// body cheaply, several nested shells at shrinking thickness are layered
+// and additively blended — since the shader only depends on radius/angle
+// (never on the thickness axis), one material can be shared across all of
+// them, and the natural overlap near the midplane builds up density there,
+// exactly like a real disk being optically thickest at its core.
+function buildFlaredProfile(innerR, outerR, segments, thicknessScale) {
   const halfThickness = (r) => {
     const t = THREE.MathUtils.clamp((r - innerR) / (outerR - innerR), 0, 1);
-    return 0.012 + Math.pow(t, 1.4) * 0.24;
+    return (0.012 + Math.pow(t, 1.4) * 0.24) * thicknessScale;
   };
   const points = [];
   for (let i = 0; i <= segments; i++) {
@@ -50,14 +58,14 @@ function buildFlaredProfile(innerR, outerR, segments) {
   return points;
 }
 
+const SHELL_THICKNESS_SCALES = [1, 0.62, 0.32, 0.12];
+
 export function createAccretionDisk() {
   const opacity = uniform(0);
   const extent = uniform(0.001); // 0..1, how far out the disk currently reaches
   const innerRadius = uniform(0.6); // world units, the current truncation radius
   const spinSpeed = uniform(1.5);
   const streamAngle = uniform(0); // world-space angle where the gas stream feeds in
-
-  const geometry = new THREE.LatheGeometry(buildFlaredProfile(GEOMETRY_INNER, OUTER_RADIUS_MAX, 72), 160);
 
   const material = new THREE.MeshBasicNodeMaterial({
     transparent: true,
@@ -112,13 +120,28 @@ export function createAccretionDisk() {
     const innerFade = smoothstep(innerRadius, innerRadius.add(0.1), r);
     const outerR = extent.mul(OUTER_RADIUS_MAX);
     const extentFade = oneMinus(smoothstep(outerR.sub(0.18), outerR, r));
-    return innerFade.mul(extentFade).mul(opacity).clamp(0, 1);
+    // Divided down from the raw opacity uniform because several shells
+    // (see SHELL_THICKNESS_SCALES) stack additively to fake a filled body —
+    // without this they'd sum well past full brightness.
+    return innerFade.mul(extentFade).mul(opacity).mul(0.4).clamp(0, 1);
   })();
 
-  const mesh = new THREE.Mesh(geometry, material);
+  // Nested shells at shrinking thickness, sharing this one material — the
+  // shader only depends on radius/angle, never on the thickness axis, so
+  // the same node graph is valid for all of them. Layering them fakes a
+  // filled, volumetric disk instead of two thin surfaces with a visible
+  // gap between.
+  const group = new THREE.Group();
+  for (const scale of SHELL_THICKNESS_SCALES) {
+    const geometry = new THREE.LatheGeometry(
+      buildFlaredProfile(GEOMETRY_INNER, OUTER_RADIUS_MAX, 72, scale),
+      160
+    );
+    group.add(new THREE.Mesh(geometry, material));
+  }
 
   return {
-    object3D: mesh,
+    object3D: group,
     uniforms: { opacity, extent, innerRadius, spinSpeed, streamAngle },
     getOuterRadius: () => extent.value * OUTER_RADIUS_MAX,
   };
