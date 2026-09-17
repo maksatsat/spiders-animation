@@ -8,7 +8,7 @@ import { Fn, uniform, color, positionLocal, normalView, positionViewDirection, c
 // toward the pulsar's far side. Only meaningful in the rotation-powered
 // state — once accretion takes over, the pulsar wind that drives it is gone.
 
-const RADIUS = 0.7;
+const RADIUS = 1.7;
 const REACH = 1.6; // stretches the dome further out along its axis toward the companion
 
 export function createIntrabinaryShock() {
