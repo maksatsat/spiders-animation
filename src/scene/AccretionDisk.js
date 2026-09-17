@@ -28,6 +28,28 @@ const GEOMETRY_INNER = 0.1;
 // stream (AccretionStream.js), not an oversized disk.
 const OUTER_RADIUS_MAX = 2.6;
 
+// The disk has real volume, flaring thicker toward its outer edge (as real
+// accretion disks do) rather than being an infinitely thin sheet. Built as
+// a lathe profile — revolved around Y, which is already the orbital-plane
+// normal in this scene, so no extra rotation is needed afterward.
+function buildFlaredProfile(innerR, outerR, segments) {
+  const halfThickness = (r) => {
+    const t = THREE.MathUtils.clamp((r - innerR) / (outerR - innerR), 0, 1);
+    return 0.012 + Math.pow(t, 1.4) * 0.24;
+  };
+  const points = [];
+  for (let i = 0; i <= segments; i++) {
+    const r = THREE.MathUtils.lerp(innerR, outerR, i / segments);
+    points.push(new THREE.Vector2(r, halfThickness(r)));
+  }
+  for (let i = segments; i >= 0; i--) {
+    const r = THREE.MathUtils.lerp(innerR, outerR, i / segments);
+    points.push(new THREE.Vector2(r, -halfThickness(r)));
+  }
+  points.push(points[0].clone()); // seal the inner rim
+  return points;
+}
+
 export function createAccretionDisk() {
   const opacity = uniform(0);
   const extent = uniform(0.001); // 0..1, how far out the disk currently reaches
@@ -35,7 +57,7 @@ export function createAccretionDisk() {
   const spinSpeed = uniform(1.5);
   const streamAngle = uniform(0); // world-space angle where the gas stream feeds in
 
-  const geometry = new THREE.RingGeometry(GEOMETRY_INNER, OUTER_RADIUS_MAX, 192, 48);
+  const geometry = new THREE.LatheGeometry(buildFlaredProfile(GEOMETRY_INNER, OUTER_RADIUS_MAX, 72), 160);
 
   const material = new THREE.MeshBasicNodeMaterial({
     transparent: true,
@@ -47,9 +69,9 @@ export function createAccretionDisk() {
   const colorSpan = OUTER_RADIUS_MAX - GEOMETRY_INNER;
 
   material.colorNode = Fn(() => {
-    const r = length(positionLocal.xy);
+    const r = length(positionLocal.xz);
     const t = clamp(r.sub(innerRadius).div(colorSpan), 0, 1);
-    const angle = atan(positionLocal.y, positionLocal.x);
+    const angle = atan(positionLocal.z, positionLocal.x);
 
     // Gentle differential-rotation streaking rather than bold concentric
     // rings — a subtle brightness ripple that spins faster near the center.
@@ -71,11 +93,22 @@ export function createAccretionDisk() {
     const angularNear = pow(max(cos(angle.sub(streamAngle)), 0), 5);
     const hotspot = radialNear.mul(angularNear).mul(2.0);
 
-    return tempColor.mul(brightnessMod).add(hot.mul(innerGlow)).add(color('#fff8ec').mul(hotspot));
+    // Continues the stream's flow motion onto the disk itself: a bright
+    // trailing arm that winds in from the hot spot, following the same
+    // differential-rotation speed as the ripple above, so it spirals
+    // inward continuously rather than the stream just stopping dead.
+    const spiralOffset = angle.sub(streamAngle).add(time.mul(speed));
+    const spiralArm = pow(max(cos(spiralOffset), 0), 22).mul(3);
+
+    return tempColor
+      .mul(brightnessMod)
+      .add(hot.mul(innerGlow))
+      .add(color('#fff8ec').mul(hotspot))
+      .add(color('#ffe9c2').mul(spiralArm));
   })();
 
   material.opacityNode = Fn(() => {
-    const r = length(positionLocal.xy);
+    const r = length(positionLocal.xz);
     const innerFade = smoothstep(innerRadius, innerRadius.add(0.1), r);
     const outerR = extent.mul(OUTER_RADIUS_MAX);
     const extentFade = oneMinus(smoothstep(outerR.sub(0.18), outerR, r));
@@ -83,7 +116,6 @@ export function createAccretionDisk() {
   })();
 
   const mesh = new THREE.Mesh(geometry, material);
-  mesh.rotation.x = Math.PI / 2;
 
   return {
     object3D: mesh,

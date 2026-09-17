@@ -62,7 +62,7 @@ export function createCompanion({ radius }) {
     // world: most of the far hemisphere stays cold, and the heating ramps
     // up hard only right around the sub-pulsar point.
     const heat = smoothstep(-0.45, 0.35, facing).mul(irradiation.add(0.6));
-    const nightColor = color('#170502');
+    const nightColor = color('#3c2415');
     const duskColor = color('#8a2c14');
     const warmColor = color('#ff9a3d');
     const hotColor = color('#fffaf0');
@@ -99,13 +99,25 @@ export function createCompanion({ radius }) {
     blending: THREE.AdditiveBlending,
   });
 
+  // Reshape the shell from a sphere into a paraboloid whose tip sits right
+  // on the nose: tight to the surface facing the pulsar, flaring outward
+  // with distance from that point, like a bow-shock/wind-sock wrapping the
+  // irradiated hemisphere rather than a uniform bubble.
+  windMaterial.positionNode = Fn(() => {
+    const windFacing = normalLocal.z;
+    const t = clamp(oneMinus(windFacing).mul(0.5), 0, 1); // 0 at nose, 1 at far pole
+    const flare = pow(t, 1.25);
+    const shellR = float(1.04).add(flare.mul(1.6));
+    return positionLocal.mul(shellR);
+  })();
+
   windMaterial.colorNode = Fn(() => {
     const windSample = positionLocal.add(vec3(0, 0, 1).mul(time.mul(windSpeed)));
     const n1 = mx_noise_float(windSample.mul(2.0));
     const n2 = mx_noise_float(windSample.mul(4.6).add(10.0));
     const turbulence = clamp(n1.mul(0.65).add(n2.mul(0.35)).mul(0.5).add(0.5), 0, 1);
 
-    const heat = smoothstep(-0.5, 0.6, facing).mul(irradiation.add(0.3));
+    const heat = smoothstep(-0.7, 0.5, facing).mul(irradiation.add(0.3));
 
     const fireCool = color('#7a1c02');
     const fireMid = color('#ff5a1a');
@@ -121,13 +133,13 @@ export function createCompanion({ radius }) {
     const n2 = mx_noise_float(windSample.mul(4.6).add(10.0));
     const turbulence = clamp(n1.mul(0.65).add(n2.mul(0.35)).mul(0.5).add(0.5), 0, 1);
 
-    const heat = smoothstep(-0.5, 0.6, facing).mul(irradiation.add(0.3));
+    const heat = smoothstep(-0.7, 0.5, facing).mul(irradiation.add(0.3));
     const rimFresnel = pow(oneMinus(clamp(normalView.dot(positionViewDirection), 0, 1)), 2);
 
     return heat.mul(turbulence).mul(0.85).add(rimFresnel.mul(heat).mul(0.4)).mul(windIntensity).clamp(0, 1);
   })();
 
-  const windLayer = new THREE.Mesh(new THREE.SphereGeometry(radius * 1.55, 64, 48), windMaterial);
+  const windLayer = new THREE.Mesh(new THREE.SphereGeometry(radius, 96, 64), windMaterial);
   mesh.add(windLayer);
 
   return {

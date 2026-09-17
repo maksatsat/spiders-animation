@@ -8,7 +8,7 @@ import { Fn, uniform, color, mix, positionLocal, time, clamp, fract, pow, sin, o
 // than regenerating a tube geometry.
 
 const RADIUS_NEAR_STAR = 0.3;
-const RADIUS_NEAR_DISK = 0.1;
+const RADIUS_NEAR_DISK = 0.035;
 
 export function createAccretionStream() {
   const opacity = uniform(0);
