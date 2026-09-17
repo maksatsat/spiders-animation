@@ -14,7 +14,8 @@ const VIEWS = [
 const TOGGLES = [
   { key: 'radioBeam', label: 'Radio beam', modes: [0] },
   { key: 'gammaBeam', label: 'Gamma-ray beam', labelByMode: { 2: 'Pulsar wind' }, modes: [0, 2] },
-  { key: 'fireLayer', label: 'Stellar wind', modes: [0, 1, 2] },
+  { key: 'fireLayer', label: 'Ablated material', modes: [0, 1, 2] },
+  { key: 'intrabinaryShock', label: 'Intrabinary shock', modes: [0] },
   { key: 'accretionDisk', label: 'Accretion disk', modes: [1, 2] },
   { key: 'jets', label: 'Compact jet', modes: [1, 2] },
   { key: 'bloom', label: 'Glow (bloom)', modes: [0, 1, 2] },
@@ -109,6 +110,21 @@ export function mountControlPanel(root) {
   });
   speedWrap.appendChild(speedSlider);
 
+  const spinWrap = el('div', 'slider-block slider-block--compact');
+  spinWrap.innerHTML = `<span class="slider-label">Spin <b id="spin-val">1.0×</b></span>`;
+  const spinSlider = document.createElement('input');
+  spinSlider.type = 'range';
+  spinSlider.min = '0.1';
+  spinSlider.max = '5';
+  spinSlider.step = '0.05';
+  spinSlider.value = String(state.spinSpeed);
+  spinSlider.addEventListener('input', () => {
+    const v = parseFloat(spinSlider.value);
+    setState({ spinSpeed: v });
+    document.getElementById('spin-val').textContent = `${v.toFixed(2)}×`;
+  });
+  spinWrap.appendChild(spinSlider);
+
   const mainSliderWrap = el('div', 'slider-block slider-block--main');
   const modeLabelsHtml = MODES.map((m) => `<span>${m.label}</span>`).join('');
   mainSliderWrap.innerHTML = `<div class="slider-label slider-label--main">${modeLabelsHtml}</div>`;
@@ -127,6 +143,7 @@ export function mountControlPanel(root) {
   transport.appendChild(playBtn);
   transport.appendChild(mainSliderWrap);
   transport.appendChild(speedWrap);
+  transport.appendChild(spinWrap);
   root.appendChild(transport);
 
   function refreshReadout() {

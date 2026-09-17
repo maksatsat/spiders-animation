@@ -104,7 +104,7 @@ export async function createSceneApp(canvas) {
     pulsarWorldPos.set(pulsar.x, 0, pulsar.z);
     companion.object3D.lookAt(pulsarWorldPos);
 
-    neutronStar.update(dt, SCENE.pulsarSpinPeriodSeconds);
+    neutronStar.update(dt, SCENE.pulsarSpinPeriodSeconds / state.spinSpeed);
 
     const target = MODE_TARGETS[state.mode];
     const t = state.toggles;
@@ -157,7 +157,7 @@ export async function createSceneApp(canvas) {
     // Intrabinary shock: only exists while the pulsar wind is actually
     // driving it, i.e. the rotation-powered state.
     companionDir.set(Math.cos(noseAngle), 0, Math.sin(noseAngle));
-    const shockTarget = state.mode === 0 ? 0.6 : 0;
+    const shockTarget = state.mode === 0 && t.intrabinaryShock ? 0.6 : 0;
     smoothed.shockOpacity = damp(smoothed.shockOpacity, shockTarget, dt, 1.2);
     intrabinaryShock.update(companionDir, smoothed.shockOpacity);
 

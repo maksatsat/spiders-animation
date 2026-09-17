@@ -13,6 +13,7 @@ export const MODES = [
 export const state = {
   playing: true,
   timeScale: 1,
+  spinSpeed: 1, // multiplier on the pulsar's base spin rate
   mode: 0, // index into MODES
   view: 'orbital', // 'earth' | 'orbital' | 'top' | 'free'
   toggles: {
@@ -21,6 +22,7 @@ export const state = {
     fireLayer: true,
     accretionDisk: true,
     jets: true,
+    intrabinaryShock: true,
     bloom: true,
   },
 };

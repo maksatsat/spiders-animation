@@ -2,14 +2,14 @@ import * as THREE from 'three/webgpu';
 import { Fn, uniform, color, positionLocal, normalView, positionViewDirection, clamp, pow, oneMinus, mx_noise_float, time } from 'three/tsl';
 
 // The intrabinary shock: where the pulsar's relativistic wind rams into the
-// companion's much weaker wind. Modeled here as a hemispherical shell
-// wrapped around the pulsar, its dome bulging out toward the companion
-// (the confining pressure comes from that direction) with the flat side
-// open toward the pulsar's far side. Only meaningful in the rotation-
-// powered state — once accretion takes over, the pulsar wind that drives
-// it is gone.
+// companion's much weaker wind. Modeled as a hemispherical shell wrapped
+// around the pulsar, its dome bulging out toward the companion (the
+// confining pressure comes from that direction) with the flat side open
+// toward the pulsar's far side. Only meaningful in the rotation-powered
+// state — once accretion takes over, the pulsar wind that drives it is gone.
 
-const RADIUS = 1.15;
+const RADIUS = 0.7;
+const REACH = 1.6; // stretches the dome further out along its axis toward the companion
 
 export function createIntrabinaryShock() {
   const opacity = uniform(0);
@@ -36,6 +36,7 @@ export function createIntrabinaryShock() {
   })();
 
   const mesh = new THREE.Mesh(geometry, material);
+  mesh.scale.y = REACH; // elongate the dome along its axis without losing the hemisphere shape
 
   const up = new THREE.Vector3(0, 1, 0);
   const quat = new THREE.Quaternion();

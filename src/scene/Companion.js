@@ -121,8 +121,8 @@ export function createCompanion({ radius }) {
     const surfaceFactor = float(1).add(starBulge).add(starNose);
 
     const t = clamp(oneMinus(windFacing).mul(0.5), 0, 1); // 0 at nose, 1 at far pole
-    const flare = pow(t, 1.25).mul(1.6);
-    const margin = float(0.1);
+    const flare = pow(t, 1.25).mul(2.6);
+    const margin = float(0.22);
 
     const shellR = surfaceFactor.add(margin).add(flare);
     return positionLocal.mul(shellR);
