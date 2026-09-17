@@ -46,7 +46,7 @@ export async function createSceneApp(canvas) {
   const accretionStream = createAccretionStream();
   scene.add(accretionStream.object3D);
 
-  const jets = createJets();
+  const jets = createJets({ baseOffset: SCENE.pulsarRadius * 2.5 });
   neutronStar.object3D.add(jets.object3D);
 
   const cameraRig = createCameraRig(canvas);

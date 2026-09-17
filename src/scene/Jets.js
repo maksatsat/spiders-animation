@@ -2,13 +2,14 @@ import * as THREE from 'three/webgpu';
 import { Fn, uniform, color, mix, positionLocal, time, clamp, fract, pow, sin, oneMinus, smoothstep } from 'three/tsl';
 
 const LENGTH = 5.5;
-const RADIUS = 0.06;
+const RADIUS = 0.13;
 
-function makeJet(direction) {
-  // radiusTop sits at local +height/2; after the translate below that's the
-  // far end, so put the wide radius there and the narrow one at the base
-  // (the pulsar) — a jet collimated at its source, flaring downstream.
-  const geometry = new THREE.CylinderGeometry(RADIUS * 2.2, RADIUS, LENGTH, 16, 24, true);
+function makeJet(direction, baseOffset) {
+  // Apex at local origin, flaring outward toward +Y — a real cone, not a
+  // frustum, and anchored a bit clear of the pulsar's surface rather than
+  // erupting from a point buried inside it.
+  const geometry = new THREE.ConeGeometry(RADIUS, LENGTH, 20, 24, true);
+  geometry.rotateX(Math.PI);
   geometry.translate(0, LENGTH / 2, 0);
 
   const material = new THREE.MeshBasicNodeMaterial({
@@ -39,14 +40,15 @@ function makeJet(direction) {
   })();
 
   const mesh = new THREE.Mesh(geometry, material);
+  mesh.position.y = baseOffset * direction;
   if (direction < 0) mesh.rotation.x = Math.PI;
   return { mesh, uniforms: { intensity, extent } };
 }
 
-export function createJets() {
+export function createJets({ baseOffset = 0.4 } = {}) {
   const group = new THREE.Group();
-  const up = makeJet(1);
-  const down = makeJet(-1);
+  const up = makeJet(1, baseOffset);
+  const down = makeJet(-1, baseOffset);
   group.add(up.mesh, down.mesh);
 
   return {

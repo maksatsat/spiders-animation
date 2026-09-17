@@ -1,5 +1,5 @@
 import * as THREE from 'three/webgpu';
-import { Fn, uniform, color, mix, positionLocal, time, clamp, fract, pow, sin, oneMinus } from 'three/tsl';
+import { Fn, uniform, color, mix, positionLocal, time, clamp, fract, pow, sin, oneMinus, smoothstep } from 'three/tsl';
 
 // A coherent, bright feeder stream bridging the companion's tidal "nose" to
 // the accretion disk's current edge — the visible L1-point mass-transfer
@@ -7,8 +7,8 @@ import { Fn, uniform, color, mix, positionLocal, time, clamp, fract, pow, sin, o
 // span two moving points instead of being rebuilt, which is far cheaper
 // than regenerating a tube geometry.
 
-const RADIUS_NEAR_STAR = 0.22;
-const RADIUS_NEAR_DISK = 0.34;
+const RADIUS_NEAR_STAR = 0.3;
+const RADIUS_NEAR_DISK = 0.1;
 
 export function createAccretionStream() {
   const opacity = uniform(0);
@@ -33,13 +33,15 @@ export function createAccretionStream() {
     const flow = fract(t.mul(4).sub(time.mul(1.4)));
     const band = pow(sin(flow.mul(Math.PI)), 6).mul(0.6);
 
-    return base.mul(oneMinus(t.mul(0.15)).add(band));
+    // Dims as it approaches the disk, on top of the geometric taper.
+    return base.mul(oneMinus(t.mul(0.5)).add(band));
   })();
 
   material.opacityNode = Fn(() => {
     const t = clamp(positionLocal.y, 0, 1);
-    const edgeFade = sin(t.mul(Math.PI)).pow(0.6); // soften both ends
-    return edgeFade.mul(opacity).clamp(0, 1);
+    const startFade = smoothstep(0, 0.06, t); // soften right where it meets the star
+    const endFade = pow(oneMinus(t), 0.9); // fades out gradually toward the disk
+    return startFade.mul(endFade).mul(opacity).clamp(0, 1);
   })();
 
   const mesh = new THREE.Mesh(geometry, material);

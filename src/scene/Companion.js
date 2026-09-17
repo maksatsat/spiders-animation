@@ -101,8 +101,8 @@ export function createCompanion({ radius }) {
 
   windMaterial.colorNode = Fn(() => {
     const windSample = positionLocal.add(vec3(0, 0, 1).mul(time.mul(windSpeed)));
-    const n1 = mx_noise_float(windSample.mul(3.2));
-    const n2 = mx_noise_float(windSample.mul(7.5).add(10.0));
+    const n1 = mx_noise_float(windSample.mul(2.0));
+    const n2 = mx_noise_float(windSample.mul(4.6).add(10.0));
     const turbulence = clamp(n1.mul(0.65).add(n2.mul(0.35)).mul(0.5).add(0.5), 0, 1);
 
     const heat = smoothstep(-0.5, 0.6, facing).mul(irradiation.add(0.3));
@@ -117,8 +117,8 @@ export function createCompanion({ radius }) {
 
   windMaterial.opacityNode = Fn(() => {
     const windSample = positionLocal.add(vec3(0, 0, 1).mul(time.mul(windSpeed)));
-    const n1 = mx_noise_float(windSample.mul(3.2));
-    const n2 = mx_noise_float(windSample.mul(7.5).add(10.0));
+    const n1 = mx_noise_float(windSample.mul(2.0));
+    const n2 = mx_noise_float(windSample.mul(4.6).add(10.0));
     const turbulence = clamp(n1.mul(0.65).add(n2.mul(0.35)).mul(0.5).add(0.5), 0, 1);
 
     const heat = smoothstep(-0.5, 0.6, facing).mul(irradiation.add(0.3));
@@ -127,7 +127,7 @@ export function createCompanion({ radius }) {
     return heat.mul(turbulence).mul(0.85).add(rimFresnel.mul(heat).mul(0.4)).mul(windIntensity).clamp(0, 1);
   })();
 
-  const windLayer = new THREE.Mesh(new THREE.SphereGeometry(radius * 1.18, 64, 48), windMaterial);
+  const windLayer = new THREE.Mesh(new THREE.SphereGeometry(radius * 1.55, 64, 48), windMaterial);
   mesh.add(windLayer);
 
   return {
