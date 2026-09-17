@@ -49,9 +49,9 @@ export function mountControlPanel(root) {
   const readout = el('div', 'panel panel--readout');
   readout.innerHTML = `
     <div class="readout-row"><span>Distance</span><b>${SYSTEM.distanceLy.toLocaleString()} ly</b></div>
-    <div class="readout-row"><span>Orbital period</span><b>${SYSTEM.orbitalPeriodHours} h</b></div>
-    <div class="readout-row"><span>Pulsar mass</span><b>${SYSTEM.pulsarMassSolar} M&#9737;</b></div>
-    <div class="readout-row"><span>Companion mass</span><b>${SYSTEM.companionMassSolar} M&#9737;</b></div>
+    <div class="readout-row"><span>Orbital period </span><b><24 h</b></div>
+    <div class="readout-row"><span>Pulsar mass</span><b>~1-2M&#9737;</b></div>
+    <div class="readout-row"><span>Companion mass</span><b>~0.1M&#9737;</b></div>
     <div class="readout-divider"></div>
     <div class="readout-row"><span>Radio luminosity</span><b id="r-radio">—</b></div>
     <div class="readout-row"><span>Gamma-ray luminosity</span><b id="r-gamma">—</b></div>

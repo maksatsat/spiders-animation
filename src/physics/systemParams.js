@@ -47,7 +47,7 @@ export const MODE_TARGETS = [
     massTransferRate: 0.04,
   },
   {
-    label: 'Low X-ray mode (disk close in)',
+    label: 'Low X-ray mode (disk just outside the light cylinder)',
     radioIntensity: 0,
     gammaIntensity: 0,
     accretionBlend: 1,
@@ -62,7 +62,7 @@ export const MODE_TARGETS = [
     massTransferRate: 0.5,
   },
   {
-    label: 'High X-ray mode (disk truncated further out)',
+    label: 'High X-ray mode (disk inside the light cylinder)',
     radioIntensity: 0,
     gammaIntensity: 1.2,
     accretionBlend: 1,
