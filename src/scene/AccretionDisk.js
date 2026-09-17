@@ -23,7 +23,9 @@ import {
 // disk truncation radius that distinguishes the high/low X-ray modes)
 // without rebuilding geometry.
 const GEOMETRY_INNER = 0.1;
-const OUTER_RADIUS_MAX = 2.9;
+// Reaches most of the way out to the companion's orbit (~6.45 units) so the
+// disk visually connects to it, with the gas stream bridging the last gap.
+const OUTER_RADIUS_MAX = 5.6;
 
 export function createAccretionDisk() {
   const opacity = uniform(0);
@@ -64,9 +66,9 @@ export function createAccretionDisk() {
 
     // Hot spot where the accretion stream slams into the disk's outer edge.
     const outerR = extent.mul(OUTER_RADIUS_MAX);
-    const radialNear = pow(oneMinus(clamp(abs(r.sub(outerR)).div(0.4), 0, 1)), 2);
-    const angularNear = pow(max(cos(angle.sub(streamAngle)), 0), 6);
-    const hotspot = radialNear.mul(angularNear).mul(1.6);
+    const radialNear = pow(oneMinus(clamp(abs(r.sub(outerR)).div(0.7), 0, 1)), 2);
+    const angularNear = pow(max(cos(angle.sub(streamAngle)), 0), 5);
+    const hotspot = radialNear.mul(angularNear).mul(2.2);
 
     return tempColor.mul(brightnessMod).add(hot.mul(innerGlow)).add(color('#fff8ec').mul(hotspot));
   })();

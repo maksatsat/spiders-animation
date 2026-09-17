@@ -35,7 +35,6 @@ export function mountControlPanel(root) {
   header.innerHTML = `
     <div class="title">Spider Pulsar</div>
     <div class="subtitle" id="state-label">Rotation-powered (radio pulsar)</div>
-    <div class="system-line">modeled on ${SYSTEM.name} — "${SYSTEM.nickname}"</div>
   `;
   root.appendChild(header);
 
@@ -102,13 +101,8 @@ export function mountControlPanel(root) {
   speedWrap.appendChild(speedSlider);
 
   const mainSliderWrap = el('div', 'slider-block slider-block--main');
-  mainSliderWrap.innerHTML = `
-    <div class="slider-label slider-label--main">
-      <span>Rotation-powered</span>
-      <span>High X-ray</span>
-      <span>Low mode</span>
-    </div>
-  `;
+  const modeLabelsHtml = MODES.map((m) => `<span>${m.label}</span>`).join('');
+  mainSliderWrap.innerHTML = `<div class="slider-label slider-label--main">${modeLabelsHtml}</div>`;
   const mainSlider = document.createElement('input');
   mainSlider.type = 'range';
   mainSlider.className = 'main-slider';

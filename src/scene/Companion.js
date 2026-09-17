@@ -18,8 +18,10 @@ import {
   mx_noise_float,
 } from 'three/tsl';
 
-// The companion is tidally locked, so its local -Z axis always points at the
-// pulsar (see SceneApp: the mesh is oriented with lookAt each frame). The
+// The companion is tidally locked, so it always shows the same face to the
+// pulsar (see SceneApp: the mesh is oriented with lookAt each frame). Note
+// Object3D.lookAt() points +Z at the target for ordinary meshes (only
+// cameras/lights use -Z), so local +Z is the pulsar-facing axis here. The
 // shader bulges the mesh and heats its surface based on alignment with that
 // fixed local axis, so the effect stays glued to the star regardless of
 // orbital phase.
@@ -35,7 +37,7 @@ export function createCompanion({ radius }) {
     metalness: 0.0,
   });
 
-  const facing = normalLocal.z.negate(); // +1 = points straight at the pulsar
+  const facing = normalLocal.z; // +1 = points straight at the pulsar
 
   material.positionNode = Fn(() => {
     const axisAlign = abs(facing); // bulge on both near AND far side (tidal stretch)

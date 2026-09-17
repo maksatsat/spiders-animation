@@ -108,7 +108,7 @@ export async function createSceneApp(canvas) {
     companion.uniforms.irradiation.value = 0.55 + smoothed.accretionBlend * 0.25;
     companion.uniforms.bulge.value = 0.2 + smoothed.accretionBlend * 0.08;
 
-    gasStream.update(simTime, smoothed.accretionBlend, t.ablationTail ? 1 : 0);
+    gasStream.update(simTime, smoothed.accretionBlend, t.ablationTail ? 1 : 0, cameraRig.camera);
 
     const diskOpacityTarget = t.accretionDisk ? target.diskOpacity : 0;
     smoothed.diskOpacity = damp(smoothed.diskOpacity, diskOpacityTarget, dt, 1.2);

@@ -6,8 +6,8 @@
 // switches between. This is the primary "story" slider the user drives.
 export const MODES = [
   { id: 'rotation', label: 'Rotation-powered' },
-  { id: 'accretion-high', label: 'Accretion — High (X-ray)' },
-  { id: 'accretion-low', label: 'Accretion — Low' },
+  { id: 'accretion-low', label: 'Low X-ray mode' },
+  { id: 'accretion-high', label: 'High X-ray mode' },
 ];
 
 export const state = {
