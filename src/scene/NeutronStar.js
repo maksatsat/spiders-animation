@@ -19,8 +19,13 @@ const GAMMA_COLOR = '#ff33d6';
 const OBLIQUITY = THREE.MathUtils.degToRad(34);
 
 function makeBeamCone(length, baseRadius, colorHex, intensityNode) {
+  // THREE.ConeGeometry puts its apex at +height/2 and its (wide) base at
+  // -height/2; flip it so the apex sits at local origin and the cone flares
+  // outward toward +Y — a proper lighthouse beam widening away from the star,
+  // not a wedge that's widest at the source.
   const geometry = new THREE.ConeGeometry(baseRadius, length, 24, 1, true);
-  geometry.translate(0, length / 2, 0); // apex at local origin, opening toward +Y
+  geometry.rotateX(Math.PI);
+  geometry.translate(0, length / 2, 0);
 
   const material = new THREE.MeshBasicNodeMaterial({
     transparent: true,

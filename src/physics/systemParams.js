@@ -24,21 +24,53 @@ export const SCENE = {
   pulsarSpinPeriodSeconds: 2.2,
 };
 
-// Interpolated "live readout" values shown in the info panel, as a function
-// of the accretion slider t in [0, 1].
-export function liveParams(t) {
-  const lerp = (a, b) => a + (b - a) * t;
-  return {
-    state:
-      t < 0.15
-        ? 'Rotation-powered (radio pulsar)'
-        : t > 0.85
-        ? 'Accretion-powered (disk-fed)'
-        : 'Transitional / state-switching',
-    radioLuminosity: lerp(1, 0.02),
-    gammaLuminosity: lerp(0.35, 1),
-    xrayLuminosity: lerp(0.15, 1),
-    massTransferRate: lerp(0.05, 1),
-    diskRadius: lerp(0, 1),
-  };
-}
+// The three observed states, as fixed target values — both what the scene
+// animates toward and what the info readout displays. Modeled loosely on the
+// real high/low X-ray "mode switching" seen in PSR J1023: in the high mode
+// the magnetospheric (disk truncation) radius sits further out and the
+// system is X-ray brighter; in the low mode the disk pushes in closer to the
+// neutron star but the system is fainter overall.
+export const MODE_TARGETS = [
+  {
+    label: 'Rotation-powered (radio pulsar)',
+    radioIntensity: 1,
+    gammaIntensity: 0.35,
+    accretionBlend: 0,
+    diskOpacity: 0,
+    diskInnerRadius: 1.15,
+    diskOuterExtent: 0,
+    jetIntensity: 0,
+    radioLuminosity: 1,
+    gammaLuminosity: 0.35,
+    xrayLuminosity: 0.12,
+    massTransferRate: 0.04,
+  },
+  {
+    label: 'Accretion-powered — high / X-ray mode',
+    radioIntensity: 0,
+    gammaIntensity: 1.2,
+    accretionBlend: 1,
+    diskOpacity: 0.68,
+    diskInnerRadius: 1.15,
+    diskOuterExtent: 0.92,
+    jetIntensity: 1,
+    radioLuminosity: 0.02,
+    gammaLuminosity: 1,
+    xrayLuminosity: 1,
+    massTransferRate: 0.85,
+  },
+  {
+    label: 'Accretion-powered — low mode',
+    radioIntensity: 0.12,
+    gammaIntensity: 0.7,
+    accretionBlend: 1,
+    diskOpacity: 0.58,
+    diskInnerRadius: 0.35,
+    diskOuterExtent: 0.75,
+    jetIntensity: 0.4,
+    radioLuminosity: 0.15,
+    gammaLuminosity: 0.55,
+    xrayLuminosity: 0.5,
+    massTransferRate: 0.5,
+  },
+];

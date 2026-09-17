@@ -15,6 +15,7 @@ import {
   abs,
   smoothstep,
   oneMinus,
+  mx_noise_float,
 } from 'three/tsl';
 
 // The companion is tidally locked, so its local -Z axis always points at the
@@ -42,19 +43,32 @@ export function createCompanion({ radius }) {
     return positionLocal.add(normalLocal.mul(bulgeAmount).mul(radius));
   })();
 
+  // Fine surface mottling (granulation / limb detail) so the terminator
+  // reads as a real irradiated surface rather than a flat gradient.
+  const grain = mx_noise_float(positionLocal.mul(5.5)).mul(0.5).add(0.5);
+
   material.colorNode = Fn(() => {
-    const heat = smoothstep(-0.15, 1.0, facing).mul(irradiation.add(0.35));
-    const coolColor = color('#7a2c1c');
-    const warmColor = color('#ffb066');
-    const hotColor = color('#fff3d6');
-    const base = mix(mix(coolColor, warmColor, clamp(heat.mul(1.6), 0, 1)), hotColor, pow(clamp(heat, 0, 1), 3));
-    const shimmer = time.mul(2.2).sin().mul(0.03).add(1);
-    return base.mul(shimmer);
+    // Sharp day/night terminator, like a heavily irradiated tidally-locked
+    // world: most of the far hemisphere stays cold, and the heating ramps
+    // up hard only right around the sub-pulsar point.
+    const heat = smoothstep(-0.45, 0.35, facing).mul(irradiation.add(0.6));
+    const nightColor = color('#170502');
+    const duskColor = color('#8a2c14');
+    const warmColor = color('#ff9a3d');
+    const hotColor = color('#fffaf0');
+
+    let base = mix(nightColor, duskColor, smoothstep(0, 0.3, heat));
+    base = mix(base, warmColor, smoothstep(0.3, 0.6, heat));
+    base = mix(base, hotColor, pow(smoothstep(0.6, 0.9, heat), 1.5));
+
+    const mottled = base.mul(mix(0.85, 1.08, grain));
+    const shimmer = time.mul(2.2).sin().mul(0.02).add(1);
+    return mottled.mul(shimmer);
   })();
 
   material.emissiveNode = Fn(() => {
-    const heat = smoothstep(0.1, 1.0, facing).mul(irradiation);
-    return color('#ff9d4d').mul(pow(heat, 2)).mul(0.9);
+    const heat = smoothstep(-0.1, 0.75, facing).mul(irradiation);
+    return color('#ffb066').mul(pow(heat, 2)).mul(2.4);
   })();
 
   const mesh = new THREE.Mesh(geometry, material);

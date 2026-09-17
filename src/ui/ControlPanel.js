@@ -1,5 +1,5 @@
-import { state, setState, setToggle, onStateChange } from '../state/SimulationState.js';
-import { SYSTEM, liveParams } from '../physics/systemParams.js';
+import { state, setState, setToggle, onStateChange, MODES } from '../state/SimulationState.js';
+import { SYSTEM, MODE_TARGETS } from '../physics/systemParams.js';
 
 const VIEWS = [
   { id: 'earth', label: 'Earth View' },
@@ -105,19 +105,19 @@ export function mountControlPanel(root) {
   mainSliderWrap.innerHTML = `
     <div class="slider-label slider-label--main">
       <span>Rotation-powered</span>
-      <b id="accretion-val">${fmtPct(state.accretion)}</b>
-      <span>Accretion-powered</span>
+      <span>High X-ray</span>
+      <span>Low mode</span>
     </div>
   `;
   const mainSlider = document.createElement('input');
   mainSlider.type = 'range';
   mainSlider.className = 'main-slider';
   mainSlider.min = '0';
-  mainSlider.max = '1';
-  mainSlider.step = '0.001';
-  mainSlider.value = String(state.accretion);
+  mainSlider.max = String(MODES.length - 1);
+  mainSlider.step = '1';
+  mainSlider.value = String(state.mode);
   mainSlider.addEventListener('input', () => {
-    setState({ accretion: parseFloat(mainSlider.value) });
+    setState({ mode: parseInt(mainSlider.value, 10) });
   });
   mainSliderWrap.appendChild(mainSlider);
 
@@ -127,13 +127,13 @@ export function mountControlPanel(root) {
   root.appendChild(transport);
 
   function refreshReadout() {
-    const p = liveParams(state.accretion);
-    document.getElementById('state-label').textContent = p.state;
+    const p = MODE_TARGETS[state.mode];
+    document.getElementById('state-label').textContent = p.label;
     document.getElementById('r-radio').textContent = fmtPct(p.radioLuminosity);
     document.getElementById('r-gamma').textContent = fmtPct(p.gammaLuminosity);
     document.getElementById('r-xray').textContent = fmtPct(p.xrayLuminosity);
     document.getElementById('r-mdot').textContent = fmtPct(p.massTransferRate);
-    document.getElementById('accretion-val').textContent = fmtPct(state.accretion);
+    mainSlider.value = String(state.mode);
     viewRow.querySelectorAll('.btn').forEach((b) => b.classList.toggle('active', b.dataset.view === state.view));
   }
 

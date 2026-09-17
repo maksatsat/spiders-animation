@@ -5,7 +5,10 @@ const LENGTH = 5.5;
 const RADIUS = 0.06;
 
 function makeJet(direction) {
-  const geometry = new THREE.CylinderGeometry(RADIUS, RADIUS * 2.2, LENGTH, 16, 24, true);
+  // radiusTop sits at local +height/2; after the translate below that's the
+  // far end, so put the wide radius there and the narrow one at the base
+  // (the pulsar) — a jet collimated at its source, flaring downstream.
+  const geometry = new THREE.CylinderGeometry(RADIUS * 2.2, RADIUS, LENGTH, 16, 24, true);
   geometry.translate(0, LENGTH / 2, 0);
 
   const material = new THREE.MeshBasicNodeMaterial({

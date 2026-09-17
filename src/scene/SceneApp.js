@@ -3,7 +3,7 @@ import { pass } from 'three/tsl';
 import { bloom } from 'three/addons/tsl/display/BloomNode.js';
 
 import { state, onStateChange } from '../state/SimulationState.js';
-import { SCENE } from '../physics/systemParams.js';
+import { SCENE, MODE_TARGETS } from '../physics/systemParams.js';
 import { orbitState } from '../physics/orbit.js';
 
 import { createStarfield } from './Starfield.js';
@@ -44,7 +44,7 @@ export async function createSceneApp(canvas) {
   scene.add(gasStream.object3D);
 
   const accretionDisk = createAccretionDisk();
-  scene.add(accretionDisk.object3D);
+  neutronStar.object3D.add(accretionDisk.object3D); // must follow the pulsar, not sit at world origin
 
   const jets = createJets();
   neutronStar.object3D.add(jets.object3D);
@@ -55,14 +55,19 @@ export async function createSceneApp(canvas) {
   const renderPipeline = new THREE.RenderPipeline(renderer);
   const scenePass = pass(scene, cameraRig.camera);
   const scenePassColor = scenePass.getTextureNode('output');
-  const bloomPass = bloom(scenePassColor, 0.45, 0.25, 0.3);
+  const bloomPass = bloom(scenePassColor, 0.4, 0.22, 0.45);
   const bloomedOutput = scenePassColor.add(bloomPass);
   renderPipeline.outputNode = bloomedOutput;
   let bloomEnabled = true;
 
+  const initialTarget = MODE_TARGETS[state.mode];
   const smoothed = {
+    radioIntensity: initialTarget.radioIntensity,
+    gammaIntensity: initialTarget.gammaIntensity,
+    accretionBlend: initialTarget.accretionBlend,
     diskOpacity: 0,
     diskExtent: 0.001,
+    diskInnerRadius: initialTarget.diskInnerRadius,
     jetIntensity: 0,
     jetExtent: 0.001,
   };
@@ -90,25 +95,35 @@ export async function createSceneApp(canvas) {
 
     neutronStar.update(dt, SCENE.pulsarSpinPeriodSeconds);
 
-    const accretion = state.accretion;
+    const target = MODE_TARGETS[state.mode];
     const t = state.toggles;
 
-    neutronStar.uniforms.radioIntensity.value = t.radioBeam ? Math.max(0, 1 - accretion * 1.15) : 0;
-    neutronStar.uniforms.gammaIntensity.value = t.gammaBeam ? 0.35 + accretion * 1.05 : 0;
-    neutronStar.uniforms.pulseIntensity.value = 1 + accretion * 0.6;
+    smoothed.radioIntensity = damp(smoothed.radioIntensity, t.radioBeam ? target.radioIntensity : 0, dt, 1.5);
+    smoothed.gammaIntensity = damp(smoothed.gammaIntensity, t.gammaBeam ? target.gammaIntensity : 0, dt, 1.5);
+    smoothed.accretionBlend = damp(smoothed.accretionBlend, target.accretionBlend, dt, 1.0);
+    neutronStar.uniforms.radioIntensity.value = smoothed.radioIntensity;
+    neutronStar.uniforms.gammaIntensity.value = smoothed.gammaIntensity;
+    neutronStar.uniforms.pulseIntensity.value = 1 + smoothed.accretionBlend * 0.6;
 
-    companion.uniforms.irradiation.value = 0.55 + accretion * 0.25;
-    companion.uniforms.bulge.value = 0.2 + accretion * 0.08;
+    companion.uniforms.irradiation.value = 0.55 + smoothed.accretionBlend * 0.25;
+    companion.uniforms.bulge.value = 0.2 + smoothed.accretionBlend * 0.08;
 
-    gasStream.update(simTime, accretion, t.ablationTail ? 1 : 0);
+    gasStream.update(simTime, smoothed.accretionBlend, t.ablationTail ? 1 : 0);
 
-    const diskTarget = t.accretionDisk ? Math.max(0, (accretion - 0.05) / 0.95) : 0;
-    smoothed.diskOpacity = damp(smoothed.diskOpacity, diskTarget * 0.95, dt, 1.2);
-    smoothed.diskExtent = damp(smoothed.diskExtent, Math.max(0.001, accretion), dt, 0.8);
+    const diskOpacityTarget = t.accretionDisk ? target.diskOpacity : 0;
+    smoothed.diskOpacity = damp(smoothed.diskOpacity, diskOpacityTarget, dt, 1.2);
+    smoothed.diskExtent = damp(smoothed.diskExtent, Math.max(0.001, target.diskOuterExtent), dt, 0.8);
+    smoothed.diskInnerRadius = damp(smoothed.diskInnerRadius, target.diskInnerRadius, dt, 0.9);
     accretionDisk.uniforms.opacity.value = smoothed.diskOpacity;
     accretionDisk.uniforms.extent.value = smoothed.diskExtent;
+    accretionDisk.uniforms.innerRadius.value = smoothed.diskInnerRadius;
+    // The gas stream feeds the disk roughly along the pulsar-companion line.
+    accretionDisk.uniforms.streamAngle.value = Math.atan2(
+      companionPos.z - pulsar.z,
+      companionPos.x - pulsar.x
+    );
 
-    const jetTarget = t.jets ? Math.max(0, (accretion - 0.25) / 0.75) : 0;
+    const jetTarget = t.jets ? target.jetIntensity : 0;
     smoothed.jetIntensity = damp(smoothed.jetIntensity, jetTarget, dt, 1.0);
     smoothed.jetExtent = damp(smoothed.jetExtent, Math.max(0.001, jetTarget), dt, 0.8);
     jets.setIntensity(smoothed.jetIntensity);

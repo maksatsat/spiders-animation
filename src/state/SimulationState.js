@@ -2,12 +2,18 @@
 // at this scale — every consumer (scene layer, UI layer) just reads `state`
 // directly each frame and subscribes for the rarer discrete events (view changes).
 
+// The three observed states a transitional millisecond pulsar (transformer)
+// switches between. This is the primary "story" slider the user drives.
+export const MODES = [
+  { id: 'rotation', label: 'Rotation-powered' },
+  { id: 'accretion-high', label: 'Accretion — High (X-ray)' },
+  { id: 'accretion-low', label: 'Accretion — Low' },
+];
+
 export const state = {
   playing: true,
   timeScale: 1,
-  // 0 = fully rotation-powered (spider) state, 1 = fully accretion-powered
-  // (transformer) state. This is the primary "story" slider the user drives.
-  accretion: 0,
+  mode: 0, // index into MODES
   view: 'orbital', // 'earth' | 'orbital' | 'top' | 'free'
   toggles: {
     radioBeam: true,

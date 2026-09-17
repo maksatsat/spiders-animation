@@ -233,6 +233,9 @@ html, body {
 .slider-label--main span:first-child {
   color: var(--accent-radio);
 }
+.slider-label--main span:nth-child(2) {
+  color: var(--accent-warn);
+}
 .slider-label--main span:last-child {
   color: var(--accent-gamma);
 }
@@ -272,6 +275,7 @@ input[type='range']::-moz-range-thumb {
 
 .main-slider {
   height: 6px;
+  background: linear-gradient(90deg, var(--accent-radio), var(--accent-warn), var(--accent-gamma));
 }
 
 @media (max-width: 860px) {
