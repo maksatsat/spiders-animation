@@ -21,7 +21,7 @@ export const SCENE = {
   pulsarRadius: 0.16,
   companionRadius: 0.85,
   orbitalPeriodSeconds: 34, // one lap of the visualized orbit, at timeScale=1
-  pulsarSpinPeriodSeconds: 2.2,
+  pulsarSpinPeriodSeconds: 1.5,
 };
 
 // The three observed states, as fixed target values — both what the scene
@@ -51,7 +51,7 @@ export const MODE_TARGETS = [
     radioIntensity: 0,
     gammaIntensity: 0,
     accretionBlend: 1,
-    diskOpacity: 0.38,
+    diskOpacity: 0.26,
     diskInnerRadius: 0.35,
     diskOuterExtent: 0.85,
     jetIntensity: 0.9,
@@ -66,7 +66,7 @@ export const MODE_TARGETS = [
     radioIntensity: 0,
     gammaIntensity: 1.2,
     accretionBlend: 1,
-    diskOpacity: 0.45,
+    diskOpacity: 0.3,
     diskInnerRadius: 1.15,
     diskOuterExtent: 0.92,
     jetIntensity: 0.9,

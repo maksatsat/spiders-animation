@@ -13,12 +13,16 @@ const VIEWS = [
 // of sitting there toggling nothing.
 const TOGGLES = [
   { key: 'radioBeam', label: 'Radio beam', modes: [0] },
-  { key: 'gammaBeam', label: 'Gamma-ray beam', modes: [0, 2] },
+  { key: 'gammaBeam', label: 'Gamma-ray beam', labelByMode: { 2: 'Pulsar wind' }, modes: [0, 2] },
   { key: 'fireLayer', label: 'Stellar wind', modes: [0, 1, 2] },
   { key: 'accretionDisk', label: 'Accretion disk', modes: [1, 2] },
-  { key: 'jets', label: 'Jets', modes: [1, 2] },
+  { key: 'jets', label: 'Compact jet', modes: [1, 2] },
   { key: 'bloom', label: 'Glow (bloom)', modes: [0, 1, 2] },
 ];
+
+function labelFor(def, mode) {
+  return (def.labelByMode && def.labelByMode[mode]) || def.label;
+}
 
 function el(tag, className, html) {
   const e = document.createElement(tag);
@@ -75,10 +79,11 @@ export function mountControlPanel(root) {
     input.type = 'checkbox';
     input.checked = state.toggles[t.key];
     input.addEventListener('change', () => setToggle(t.key, input.checked));
+    const labelSpan = el('span', null, t.label);
     row.appendChild(input);
-    row.appendChild(el('span', null, t.label));
+    row.appendChild(labelSpan);
     toggles.appendChild(row);
-    return { def: t, row };
+    return { def: t, row, labelSpan };
   });
   root.appendChild(toggles);
 
@@ -133,8 +138,9 @@ export function mountControlPanel(root) {
     document.getElementById('r-mdot').textContent = fmtPct(p.massTransferRate);
     mainSlider.value = String(state.mode);
     viewRow.querySelectorAll('.btn').forEach((b) => b.classList.toggle('active', b.dataset.view === state.view));
-    toggleRows.forEach(({ def, row }) => {
+    toggleRows.forEach(({ def, row, labelSpan }) => {
       row.style.display = def.modes.includes(state.mode) ? '' : 'none';
+      labelSpan.textContent = labelFor(def, state.mode);
     });
   }
 

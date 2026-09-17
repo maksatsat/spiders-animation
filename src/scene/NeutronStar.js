@@ -20,6 +20,7 @@ import {
 
 const RADIO_COLOR = '#7dffb8';
 const GAMMA_COLOR = '#ff33d6';
+export const GAMMA_COLOR_HIGH_MODE = '#4fb3ff'; // "pulsar wind" styling in high X-ray mode
 const OBLIQUITY = THREE.MathUtils.degToRad(34);
 
 function makeBeamCone(length, baseRadius, colorHex, intensityNode) {
@@ -38,7 +39,7 @@ function makeBeamCone(length, baseRadius, colorHex, intensityNode) {
     blending: THREE.AdditiveBlending,
   });
 
-  const beamColor = color(colorHex);
+  const beamColor = uniform(new THREE.Color(colorHex));
 
   material.colorNode = Fn(() => {
     const t = clamp(positionLocal.y.div(length), 0, 1);
@@ -53,7 +54,7 @@ function makeBeamCone(length, baseRadius, colorHex, intensityNode) {
     return pow(oneMinus(t), 2.4).mul(intensityNode).clamp(0, 1);
   })();
 
-  return new THREE.Mesh(geometry, material);
+  return { mesh: new THREE.Mesh(geometry, material), colorUniform: beamColor };
 }
 
 export function createNeutronStar({ radius, beamLength }) {
@@ -95,18 +96,18 @@ export function createNeutronStar({ radius, beamLength }) {
   const poleOffset = radius * 0.95;
 
   const radioTop = makeBeamCone(beamLength, radius * 1.1, RADIO_COLOR, radioIntensity);
-  radioTop.position.y = poleOffset;
+  radioTop.mesh.position.y = poleOffset;
   const radioBottom = makeBeamCone(beamLength, radius * 1.1, RADIO_COLOR, radioIntensity);
-  radioBottom.position.y = -poleOffset;
-  radioBottom.rotation.x = Math.PI;
+  radioBottom.mesh.position.y = -poleOffset;
+  radioBottom.mesh.rotation.x = Math.PI;
 
   const gammaTop = makeBeamCone(beamLength * 0.85, radius * 4.5, GAMMA_COLOR, gammaIntensity);
-  gammaTop.position.y = poleOffset;
+  gammaTop.mesh.position.y = poleOffset;
   const gammaBottom = makeBeamCone(beamLength * 0.85, radius * 4.5, GAMMA_COLOR, gammaIntensity);
-  gammaBottom.position.y = -poleOffset;
-  gammaBottom.rotation.x = Math.PI;
+  gammaBottom.mesh.position.y = -poleOffset;
+  gammaBottom.mesh.rotation.x = Math.PI;
 
-  obliqueRig.add(radioTop, radioBottom, gammaTop, gammaBottom);
+  obliqueRig.add(radioTop.mesh, radioBottom.mesh, gammaTop.mesh, gammaBottom.mesh);
 
   let spinAngle = 0;
   const sinObliquity = Math.sin(OBLIQUITY);
@@ -116,6 +117,11 @@ export function createNeutronStar({ radius, beamLength }) {
     object3D: group,
     light,
     uniforms: { radioIntensity, gammaIntensity, pulseIntensity },
+    setGammaColor(hex) {
+      gammaTop.colorUniform.value.set(hex);
+      gammaBottom.colorUniform.value.set(hex);
+    },
+    getSpinAngle: () => spinAngle,
     update(dt, spinPeriodSeconds) {
       spinAngle += (dt / spinPeriodSeconds) * Math.PI * 2;
       spinRig.rotation.y = spinAngle;

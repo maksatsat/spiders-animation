@@ -66,6 +66,8 @@ export function createAccretionDisk() {
   const innerRadius = uniform(0.6); // world units, the current truncation radius
   const spinSpeed = uniform(1.5);
   const streamAngle = uniform(0); // world-space angle where the gas stream feeds in
+  const pulsarSpinAngle = uniform(0); // tracks the neutron star's own spin (high mode only)
+  const innerSpotIntensity = uniform(0);
 
   const material = new THREE.MeshBasicNodeMaterial({
     transparent: true,
@@ -108,11 +110,26 @@ export function createAccretionDisk() {
     const spiralOffset = angle.sub(streamAngle).add(time.mul(speed));
     const spiralArm = pow(max(cos(spiralOffset), 0), 22).mul(3);
 
+    // Two spots on the inner side of the disk, one per magnetic pole, that
+    // co-rotate with the pulsar's own spin rather than the disk's
+    // differential rotation — material funneling down along the field
+    // lines onto the polar caps, only present once accretion has truncated
+    // the disk in close enough to couple to the magnetosphere (high mode).
+    // Positioned by *absolute* distance past the inner edge (not a fraction
+    // of the whole disk span, which lands much further out than "inner"
+    // actually means) and pushed bright enough to read against the bloom.
+    const distPastInner = r.sub(innerRadius);
+    const innerBand = pow(oneMinus(clamp(abs(distPastInner.sub(0.4)).div(0.22), 0, 1)), 2);
+    const spotA = pow(max(cos(angle.sub(pulsarSpinAngle)), 0), 10);
+    const spotB = pow(max(cos(angle.sub(pulsarSpinAngle).sub(Math.PI)), 0), 10);
+    const innerSpots = innerBand.mul(spotA.add(spotB)).mul(innerSpotIntensity).mul(24);
+
     return tempColor
       .mul(brightnessMod)
       .add(hot.mul(innerGlow))
       .add(color('#fff8ec').mul(hotspot))
-      .add(color('#ffe9c2').mul(spiralArm));
+      .add(color('#ffe9c2').mul(spiralArm))
+      .add(color('#4fd8ff').mul(innerSpots));
   })();
 
   material.opacityNode = Fn(() => {
@@ -142,7 +159,7 @@ export function createAccretionDisk() {
 
   return {
     object3D: group,
-    uniforms: { opacity, extent, innerRadius, spinSpeed, streamAngle },
+    uniforms: { opacity, extent, innerRadius, spinSpeed, streamAngle, pulsarSpinAngle, innerSpotIntensity },
     getOuterRadius: () => extent.value * OUTER_RADIUS_MAX,
   };
 }

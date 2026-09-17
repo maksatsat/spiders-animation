@@ -7,12 +7,15 @@ import { SCENE, MODE_TARGETS } from '../physics/systemParams.js';
 import { orbitState } from '../physics/orbit.js';
 
 import { createStarfield } from './Starfield.js';
-import { createNeutronStar } from './NeutronStar.js';
+import { createNeutronStar, GAMMA_COLOR_HIGH_MODE } from './NeutronStar.js';
 import { createCompanion, noseReach } from './Companion.js';
 import { createAccretionDisk } from './AccretionDisk.js';
 import { createAccretionStream } from './AccretionStream.js';
 import { createJets } from './Jets.js';
+import { createIntrabinaryShock } from './IntrabinaryShock.js';
 import { createCameraRig } from './CameraRig.js';
+
+const GAMMA_COLOR_DEFAULT = '#ff33d6';
 
 function damp(current, target, dt, speed) {
   const a = 1 - Math.exp(-speed * dt);
@@ -49,6 +52,9 @@ export async function createSceneApp(canvas) {
   const jets = createJets({ baseOffset: SCENE.pulsarRadius * 2.5 });
   neutronStar.object3D.add(jets.object3D);
 
+  const intrabinaryShock = createIntrabinaryShock();
+  neutronStar.object3D.add(intrabinaryShock.object3D);
+
   const cameraRig = createCameraRig(canvas);
   cameraRig.goTo(state.view);
 
@@ -70,6 +76,8 @@ export async function createSceneApp(canvas) {
     diskInnerRadius: initialTarget.diskInnerRadius,
     jetIntensity: 0,
     jetExtent: 0.001,
+    shockOpacity: 0,
+    innerSpotIntensity: 0,
   };
 
   let simTime = 0;
@@ -85,6 +93,7 @@ export async function createSceneApp(canvas) {
   const pulsarWorldPos = new THREE.Vector3();
   const noseTip = new THREE.Vector3();
   const diskEdge = new THREE.Vector3();
+  const companionDir = new THREE.Vector3();
 
   function tick(dt) {
     if (state.playing) simTime += dt * state.timeScale;
@@ -106,6 +115,7 @@ export async function createSceneApp(canvas) {
     neutronStar.uniforms.radioIntensity.value = smoothed.radioIntensity;
     neutronStar.uniforms.gammaIntensity.value = smoothed.gammaIntensity;
     neutronStar.uniforms.pulseIntensity.value = 1 + smoothed.accretionBlend * 0.6;
+    neutronStar.setGammaColor(state.mode === 2 ? GAMMA_COLOR_HIGH_MODE : GAMMA_COLOR_DEFAULT);
 
     companion.uniforms.irradiation.value = 0.55 + smoothed.accretionBlend * 0.25;
     companion.uniforms.bulge.value = 0.2 + smoothed.accretionBlend * 0.08;
@@ -119,6 +129,10 @@ export async function createSceneApp(canvas) {
     accretionDisk.uniforms.opacity.value = smoothed.diskOpacity;
     accretionDisk.uniforms.extent.value = smoothed.diskExtent;
     accretionDisk.uniforms.innerRadius.value = smoothed.diskInnerRadius;
+    accretionDisk.uniforms.pulsarSpinAngle.value = neutronStar.getSpinAngle();
+    const innerSpotTarget = t.accretionDisk && state.mode === 2 ? 1 : 0;
+    smoothed.innerSpotIntensity = damp(smoothed.innerSpotIntensity, innerSpotTarget, dt, 1.2);
+    accretionDisk.uniforms.innerSpotIntensity.value = smoothed.innerSpotIntensity;
     // The nose (on the star) always points straight at the pulsar, but the
     // stream leaves carrying the companion's orbital velocity, so it hits
     // the disk ahead of the direct line — offset by the motion direction
@@ -139,6 +153,13 @@ export async function createSceneApp(canvas) {
     const diskOuterR = accretionDisk.getOuterRadius();
     diskEdge.set(pulsar.x + Math.cos(motionAngle) * diskOuterR, 0, pulsar.z + Math.sin(motionAngle) * diskOuterR);
     accretionStream.update(noseTip, diskEdge, t.accretionDisk ? smoothed.diskOpacity : 0);
+
+    // Intrabinary shock: only exists while the pulsar wind is actually
+    // driving it, i.e. the rotation-powered state.
+    companionDir.set(Math.cos(noseAngle), 0, Math.sin(noseAngle));
+    const shockTarget = state.mode === 0 ? 0.6 : 0;
+    smoothed.shockOpacity = damp(smoothed.shockOpacity, shockTarget, dt, 1.2);
+    intrabinaryShock.update(companionDir, smoothed.shockOpacity);
 
     const jetTarget = t.jets ? target.jetIntensity : 0;
     smoothed.jetIntensity = damp(smoothed.jetIntensity, jetTarget, dt, 1.0);
