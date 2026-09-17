@@ -9,7 +9,6 @@ import { orbitState } from '../physics/orbit.js';
 import { createStarfield } from './Starfield.js';
 import { createNeutronStar } from './NeutronStar.js';
 import { createCompanion, noseReach } from './Companion.js';
-import { createGasStream } from './GasStream.js';
 import { createAccretionDisk } from './AccretionDisk.js';
 import { createAccretionStream } from './AccretionStream.js';
 import { createJets } from './Jets.js';
@@ -40,9 +39,6 @@ export async function createSceneApp(canvas) {
 
   const companion = createCompanion({ radius: SCENE.companionRadius });
   scene.add(companion.object3D);
-
-  const gasStream = createGasStream();
-  scene.add(gasStream.object3D);
 
   const accretionDisk = createAccretionDisk();
   neutronStar.object3D.add(accretionDisk.object3D); // must follow the pulsar, not sit at world origin
@@ -93,7 +89,7 @@ export async function createSceneApp(canvas) {
   function tick(dt) {
     if (state.playing) simTime += dt * state.timeScale;
 
-    const { pulsar, companion: companionPos } = orbitState(simTime);
+    const { pulsar, companion: companionPos, phase } = orbitState(simTime);
     neutronStar.object3D.position.set(pulsar.x, 0, pulsar.z);
     companion.object3D.position.set(companionPos.x, 0, companionPos.z);
     pulsarWorldPos.set(pulsar.x, 0, pulsar.z);
@@ -114,8 +110,7 @@ export async function createSceneApp(canvas) {
     companion.uniforms.irradiation.value = 0.55 + smoothed.accretionBlend * 0.25;
     companion.uniforms.bulge.value = 0.2 + smoothed.accretionBlend * 0.08;
     companion.uniforms.noseStrength.value = 0.08 + smoothed.accretionBlend * 0.45;
-
-    gasStream.update(simTime, smoothed.accretionBlend, t.ablationTail ? 1 : 0);
+    companion.uniforms.windIntensity.value = t.fireLayer ? 1 : 0;
 
     const diskOpacityTarget = t.accretionDisk ? target.diskOpacity : 0;
     smoothed.diskOpacity = damp(smoothed.diskOpacity, diskOpacityTarget, dt, 1.2);
@@ -124,20 +119,25 @@ export async function createSceneApp(canvas) {
     accretionDisk.uniforms.opacity.value = smoothed.diskOpacity;
     accretionDisk.uniforms.extent.value = smoothed.diskExtent;
     accretionDisk.uniforms.innerRadius.value = smoothed.diskInnerRadius;
-    // The gas stream feeds the disk roughly along the pulsar-companion line.
-    const streamAngle = Math.atan2(companionPos.z - pulsar.z, companionPos.x - pulsar.x);
-    accretionDisk.uniforms.streamAngle.value = streamAngle;
+    // The nose (on the star) always points straight at the pulsar, but the
+    // stream leaves carrying the companion's orbital velocity, so it hits
+    // the disk ahead of the direct line — offset by the motion direction
+    // (tangent to the orbit), which is also where a real infall hot spot
+    // forms since it's prograde with the disk's own rotation.
+    const noseAngle = Math.atan2(companionPos.z - pulsar.z, companionPos.x - pulsar.x);
+    const motionAngle = phase + Math.PI / 2;
+    accretionDisk.uniforms.streamAngle.value = motionAngle;
 
     // Bridge the companion's tidal "nose" to the disk's current edge with a
     // dedicated feeder-stream mesh (see AccretionStream.js).
     const noseDist = noseReach(SCENE.companionRadius, companion.uniforms.bulge.value, companion.uniforms.noseStrength.value);
     noseTip.set(
-      companionPos.x - Math.cos(streamAngle) * noseDist,
+      companionPos.x - Math.cos(noseAngle) * noseDist,
       0,
-      companionPos.z - Math.sin(streamAngle) * noseDist
+      companionPos.z - Math.sin(noseAngle) * noseDist
     );
     const diskOuterR = accretionDisk.getOuterRadius();
-    diskEdge.set(pulsar.x + Math.cos(streamAngle) * diskOuterR, 0, pulsar.z + Math.sin(streamAngle) * diskOuterR);
+    diskEdge.set(pulsar.x + Math.cos(motionAngle) * diskOuterR, 0, pulsar.z + Math.sin(motionAngle) * diskOuterR);
     accretionStream.update(noseTip, diskEdge, t.accretionDisk ? smoothed.diskOpacity : 0);
 
     const jetTarget = t.jets ? target.jetIntensity : 0;

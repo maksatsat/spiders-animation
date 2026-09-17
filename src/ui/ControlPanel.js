@@ -8,13 +8,16 @@ const VIEWS = [
   { id: 'free', label: 'Free' },
 ];
 
+// `modes` lists which slider positions (indices into MODES) each layer is
+// actually active in — its checkbox is hidden the rest of the time instead
+// of sitting there toggling nothing.
 const TOGGLES = [
-  { key: 'radioBeam', label: 'Radio beam' },
-  { key: 'gammaBeam', label: 'Gamma-ray beam' },
-  { key: 'ablationTail', label: 'Gas / ablation tail' },
-  { key: 'accretionDisk', label: 'Accretion disk' },
-  { key: 'jets', label: 'Jets' },
-  { key: 'bloom', label: 'Glow (bloom)' },
+  { key: 'radioBeam', label: 'Radio beam', modes: [0] },
+  { key: 'gammaBeam', label: 'Gamma-ray beam', modes: [0, 2] },
+  { key: 'fireLayer', label: 'Stellar wind', modes: [0, 1, 2] },
+  { key: 'accretionDisk', label: 'Accretion disk', modes: [1, 2] },
+  { key: 'jets', label: 'Jets', modes: [1, 2] },
+  { key: 'bloom', label: 'Glow (bloom)', modes: [0, 1, 2] },
 ];
 
 function el(tag, className, html) {
@@ -66,7 +69,7 @@ export function mountControlPanel(root) {
 
   const toggles = el('div', 'panel panel--toggles');
   toggles.appendChild(el('div', 'panel-label', 'Layers'));
-  TOGGLES.forEach((t) => {
+  const toggleRows = TOGGLES.map((t) => {
     const row = el('label', 'toggle-row');
     const input = document.createElement('input');
     input.type = 'checkbox';
@@ -75,6 +78,7 @@ export function mountControlPanel(root) {
     row.appendChild(input);
     row.appendChild(el('span', null, t.label));
     toggles.appendChild(row);
+    return { def: t, row };
   });
   root.appendChild(toggles);
 
@@ -129,6 +133,9 @@ export function mountControlPanel(root) {
     document.getElementById('r-mdot').textContent = fmtPct(p.massTransferRate);
     mainSlider.value = String(state.mode);
     viewRow.querySelectorAll('.btn').forEach((b) => b.classList.toggle('active', b.dataset.view === state.view));
+    toggleRows.forEach(({ def, row }) => {
+      row.style.display = def.modes.includes(state.mode) ? '' : 'none';
+    });
   }
 
   mainSlider.addEventListener('input', refreshReadout);

@@ -5,6 +5,7 @@ import {
   color,
   mix,
   float,
+  vec3,
   positionLocal,
   normalLocal,
   normalView,
@@ -83,28 +84,55 @@ export function createCompanion({ radius }) {
   const mesh = new THREE.Mesh(geometry, material);
   mesh.castShadow = false;
 
-  // Faint atmospheric rim to sell the "gas actively boiling off" look even
-  // when the particle tail is toggled off.
-  const rimMaterial = new THREE.MeshBasicNodeMaterial({
+  // A turbulent, fire-like layer wrapping the irradiated hemisphere,
+  // standing in for the star's boiled-off atmosphere. The noise field is
+  // advected along local +Z (toward the pulsar) each frame, which makes
+  // the pattern visually stream in the opposite direction — i.e. wind
+  // blowing *from* the pulsar-facing side back across the surface.
+  const windIntensity = uniform(1); // toggle: 0 = off, 1 = on
+  const windSpeed = uniform(0.3);
+
+  const windMaterial = new THREE.MeshBasicNodeMaterial({
     transparent: true,
     depthWrite: false,
-    side: THREE.BackSide,
+    side: THREE.FrontSide,
     blending: THREE.AdditiveBlending,
   });
-  rimMaterial.colorNode = Fn(() => {
-    const rim = pow(oneMinus(clamp(normalView.dot(positionViewDirection), 0, 1)), 3);
-    return color('#ff8a4a').mul(rim).mul(irradiation);
+
+  windMaterial.colorNode = Fn(() => {
+    const windSample = positionLocal.add(vec3(0, 0, 1).mul(time.mul(windSpeed)));
+    const n1 = mx_noise_float(windSample.mul(3.2));
+    const n2 = mx_noise_float(windSample.mul(7.5).add(10.0));
+    const turbulence = clamp(n1.mul(0.65).add(n2.mul(0.35)).mul(0.5).add(0.5), 0, 1);
+
+    const heat = smoothstep(-0.5, 0.6, facing).mul(irradiation.add(0.3));
+
+    const fireCool = color('#7a1c02');
+    const fireMid = color('#ff5a1a');
+    const fireHot = color('#ffe066');
+    let fire = mix(fireCool, fireMid, turbulence);
+    fire = mix(fire, fireHot, pow(clamp(turbulence.mul(heat.add(0.3)), 0, 1), 2));
+    return fire.mul(heat.add(0.2));
   })();
-  rimMaterial.opacityNode = Fn(() => {
-    const rim = pow(oneMinus(clamp(normalView.dot(positionViewDirection), 0, 1)), 3);
-    return rim.mul(irradiation).clamp(0, 1);
+
+  windMaterial.opacityNode = Fn(() => {
+    const windSample = positionLocal.add(vec3(0, 0, 1).mul(time.mul(windSpeed)));
+    const n1 = mx_noise_float(windSample.mul(3.2));
+    const n2 = mx_noise_float(windSample.mul(7.5).add(10.0));
+    const turbulence = clamp(n1.mul(0.65).add(n2.mul(0.35)).mul(0.5).add(0.5), 0, 1);
+
+    const heat = smoothstep(-0.5, 0.6, facing).mul(irradiation.add(0.3));
+    const rimFresnel = pow(oneMinus(clamp(normalView.dot(positionViewDirection), 0, 1)), 2);
+
+    return heat.mul(turbulence).mul(0.85).add(rimFresnel.mul(heat).mul(0.4)).mul(windIntensity).clamp(0, 1);
   })();
-  const rim = new THREE.Mesh(new THREE.SphereGeometry(radius * 1.12, 48, 32), rimMaterial);
-  mesh.add(rim);
+
+  const windLayer = new THREE.Mesh(new THREE.SphereGeometry(radius * 1.18, 64, 48), windMaterial);
+  mesh.add(windLayer);
 
   return {
     object3D: mesh,
-    uniforms: { bulge, irradiation, noseStrength },
+    uniforms: { bulge, irradiation, noseStrength, windIntensity, windSpeed },
   };
 }
 

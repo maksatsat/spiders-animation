@@ -2,11 +2,10 @@ import * as THREE from 'three/webgpu';
 import { Fn, uniform, color, mix, positionLocal, time, clamp, fract, pow, sin, oneMinus } from 'three/tsl';
 
 // A coherent, bright feeder stream bridging the companion's tidal "nose" to
-// the accretion disk's edge — the visible L1-point mass-transfer funnel, as
-// opposed to the diffuse gray ablation cloud (GasStream.js), which is a
-// separate, always-present process. This one mesh is re-positioned and
-// re-oriented every frame to span two moving points instead of being
-// rebuilt, which is far cheaper than regenerating a tube geometry.
+// the accretion disk's current edge — the visible L1-point mass-transfer
+// funnel. This one mesh is re-positioned and re-oriented every frame to
+// span two moving points instead of being rebuilt, which is far cheaper
+// than regenerating a tube geometry.
 
 const RADIUS_NEAR_STAR = 0.22;
 const RADIUS_NEAR_DISK = 0.34;

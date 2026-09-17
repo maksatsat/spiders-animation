@@ -14,6 +14,7 @@ import {
   clamp,
   abs,
   dot,
+  smoothstep,
   oneMinus,
 } from 'three/tsl';
 
@@ -72,7 +73,7 @@ export function createNeutronStar({ radius, beamLength }) {
     const pulse = float(1).add(time.mul(9).sin().mul(0.06));
     const base = mix(color('#3d8fff'), color('#bfe0ff'), rim);
     const poleAlign = abs(dot(normalLocal, poleDir));
-    const hotspot = pow(poleAlign, 22).mul(3.5);
+    const hotspot = smoothstep(0.93, 0.995, poleAlign).mul(3.5);
     return base.mul(pulse).add(color('#ffffff').mul(hotspot)).mul(pulseIntensity);
   })();
   const core = new THREE.Mesh(new THREE.IcosahedronGeometry(radius, 4), coreMaterial);
@@ -88,12 +89,21 @@ export function createNeutronStar({ radius, beamLength }) {
   spinRig.add(obliqueRig);
   group.add(spinRig);
 
+  // Anchor each cone's apex just outside the core's surface rather than at
+  // its center — otherwise the apex is buried inside the opaque sphere and
+  // the intersection seam sparkles/z-fights as the star spins.
+  const poleOffset = radius * 0.95;
+
   const radioTop = makeBeamCone(beamLength, radius * 1.1, RADIO_COLOR, radioIntensity);
+  radioTop.position.y = poleOffset;
   const radioBottom = makeBeamCone(beamLength, radius * 1.1, RADIO_COLOR, radioIntensity);
+  radioBottom.position.y = -poleOffset;
   radioBottom.rotation.x = Math.PI;
 
   const gammaTop = makeBeamCone(beamLength * 0.85, radius * 4.5, GAMMA_COLOR, gammaIntensity);
+  gammaTop.position.y = poleOffset;
   const gammaBottom = makeBeamCone(beamLength * 0.85, radius * 4.5, GAMMA_COLOR, gammaIntensity);
+  gammaBottom.position.y = -poleOffset;
   gammaBottom.rotation.x = Math.PI;
 
   obliqueRig.add(radioTop, radioBottom, gammaTop, gammaBottom);

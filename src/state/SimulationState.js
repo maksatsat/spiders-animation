@@ -18,7 +18,7 @@ export const state = {
   toggles: {
     radioBeam: true,
     gammaBeam: true,
-    ablationTail: true,
+    fireLayer: true,
     accretionDisk: true,
     jets: true,
     bloom: true,
