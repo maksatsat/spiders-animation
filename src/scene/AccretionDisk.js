@@ -17,6 +17,7 @@ import {
   max,
   oneMinus,
 } from 'three/tsl';
+import { dimColor } from './filterFx.js';
 
 // Geometry inner radius stays fixed and small — the *visible* inner edge is
 // entirely shader-driven via the `innerRadius` uniform, so it can move (the
@@ -68,6 +69,10 @@ export function createAccretionDisk() {
   const streamAngle = uniform(0); // world-space angle where the gas stream feeds in
   const pulsarSpinAngle = uniform(0); // tracks the neutron star's own spin (high mode only)
   const innerSpotIntensity = uniform(0);
+  // Emission-filter dimming, kept separate so e.g. a gamma-ray filter in
+  // high mode can gray out the disk body while keeping the inner spots lit.
+  const diskDim = uniform(0);
+  const spotDim = uniform(0);
 
   const material = new THREE.MeshBasicNodeMaterial({
     transparent: true,
@@ -127,12 +132,14 @@ export function createAccretionDisk() {
     const spotB = pow(max(cos(angle.add(pulsarSpinAngle).sub(Math.PI)), 0), 10);
     const innerSpots = innerBand.mul(spotA.add(spotB)).mul(innerSpotIntensity).mul(24);
 
-    return tempColor
+    const bodyColor = tempColor
       .mul(brightnessMod)
       .add(hot.mul(innerGlow))
       .add(color('#fff8ec').mul(hotspot))
-      .add(color('#ffe9c2').mul(spiralArm))
-      .add(color('#4fd8ff').mul(innerSpots));
+      .add(color('#ffe9c2').mul(spiralArm));
+    const spotColor = color('#4fd8ff').mul(innerSpots);
+
+    return dimColor(bodyColor, diskDim).add(dimColor(spotColor, spotDim));
   })();
 
   material.opacityNode = Fn(() => {
@@ -162,7 +169,17 @@ export function createAccretionDisk() {
 
   return {
     object3D: group,
-    uniforms: { opacity, extent, innerRadius, spinSpeed, streamAngle, pulsarSpinAngle, innerSpotIntensity },
+    uniforms: {
+      opacity,
+      extent,
+      innerRadius,
+      spinSpeed,
+      streamAngle,
+      pulsarSpinAngle,
+      innerSpotIntensity,
+      diskDim,
+      spotDim,
+    },
     getOuterRadius: () => extent.value * OUTER_RADIUS_MAX,
   };
 }

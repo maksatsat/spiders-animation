@@ -2,9 +2,12 @@ import * as THREE from 'three/webgpu';
 import { pass } from 'three/tsl';
 import { bloom } from 'three/addons/tsl/display/BloomNode.js';
 
-import { state, onStateChange } from '../state/SimulationState.js';
+import { state, onStateChange, MODES } from '../state/SimulationState.js';
 import { SCENE, MODE_TARGETS } from '../physics/systemParams.js';
 import { orbitState } from '../physics/orbit.js';
+import { createModeSwitchState, advanceModeSwitch } from '../physics/modeSwitching.js';
+import { stepTelemetry } from '../physics/telemetry.js';
+import { isHighlighted } from '../physics/emissionFilter.js';
 
 import { createStarfield } from './Starfield.js';
 import { createNeutronStar, GAMMA_COLOR_HIGH_MODE } from './NeutronStar.js';
@@ -16,6 +19,7 @@ import { createIntrabinaryShock } from './IntrabinaryShock.js';
 import { createCameraRig } from './CameraRig.js';
 
 const GAMMA_COLOR_DEFAULT = '#ff33d6';
+const SWITCHING_MODE = MODES.findIndex((m) => m.id === 'mode-switching');
 
 function damp(current, target, dt, speed) {
   const a = 1 - Math.exp(-speed * dt);
@@ -78,15 +82,44 @@ export async function createSceneApp(canvas) {
     jetExtent: 0.001,
     shockOpacity: 0,
     innerSpotIntensity: 0,
+    irradiationLevel: state.irradiationLevel,
+    dim: {
+      neutronStarBody: 0,
+      radioBeam: 0,
+      gammaBeam: 0,
+      companion: 0,
+      ablatedWind: 0,
+      accretionDisk: 0,
+      innerDiskSpot: 0,
+      jets: 0,
+      intrabinaryShock: 0,
+    },
   };
 
   let simTime = 0;
   let lastView = state.view;
+  let lastPhaseResetToken = state.phaseResetToken;
+  const modeSwitchState = createModeSwitchState();
+
+  // orbitState's own phase=0 puts the binary separation along the Earth
+  // view's line of sight (a conjunction), not perpendicular to it — so the
+  // light-curve phase (0 = ascending node, i.e. separation perpendicular to
+  // the line of sight) runs a quarter-cycle ahead of the raw orbital phase.
+  // This offset also gets rebased on a phase reset so the light-curve
+  // display always restarts exactly at 0.
+  let orbitalCycleOffset = 0.25;
 
   onStateChange((s) => {
     if (s.view !== lastView) {
       lastView = s.view;
       cameraRig.goTo(s.view);
+    }
+    if (s.phaseResetToken !== lastPhaseResetToken) {
+      lastPhaseResetToken = s.phaseResetToken;
+      // Raw phase 0.75 cycle puts the separation along Z — perpendicular to
+      // the Earth view's line of sight (along X) — i.e. the ascending node.
+      simTime = 0.75 * SCENE.orbitalPeriodSeconds;
+      orbitalCycleOffset = -0.75;
     }
   });
 
@@ -96,9 +129,13 @@ export async function createSceneApp(canvas) {
   const companionDir = new THREE.Vector3();
 
   function tick(dt) {
-    if (state.playing) simTime += dt * state.timeScale;
+    const dtSim = state.playing ? dt * state.timeScale : 0;
+    simTime += dtSim;
 
     const { pulsar, companion: companionPos, phase } = orbitState(simTime);
+    // Unbounded cycle count driving the light-curve phase marker; see the
+    // orbitalCycleOffset comment above for why the raw phase is shifted.
+    state.orbitalCycle = phase / (Math.PI * 2) + orbitalCycleOffset;
     neutronStar.object3D.position.set(pulsar.x, 0, pulsar.z);
     companion.object3D.position.set(companionPos.x, 0, companionPos.z);
     pulsarWorldPos.set(pulsar.x, 0, pulsar.z);
@@ -106,8 +143,37 @@ export async function createSceneApp(canvas) {
 
     neutronStar.update(dt, SCENE.pulsarSpinPeriodSeconds / state.spinSpeed);
 
-    const target = MODE_TARGETS[state.mode];
+    let effectiveMode = state.mode;
+    if (state.mode === SWITCHING_MODE) {
+      effectiveMode = advanceModeSwitch(modeSwitchState, dtSim);
+      state.modeSwitchPhase = modeSwitchState.phase;
+      const phaseProgress = 1 - modeSwitchState.remaining / modeSwitchState.duration;
+      stepTelemetry(dtSim, modeSwitchState.phase, phaseProgress);
+    }
+    const target = MODE_TARGETS[effectiveMode];
     const t = state.toggles;
+
+    // Emission-band filter: anything not part of the selected band's
+    // highlighted sources for the current mode fades to grayscale. The
+    // ablated wind never belongs to any band, so it dims whenever a filter
+    // is active at all.
+    const filterActive = !!state.filterBand;
+    Object.keys(smoothed.dim).forEach((key) => {
+      const dimTarget =
+        key === 'ablatedWind'
+          ? filterActive
+          : filterActive && !isHighlighted(state.filterBand, effectiveMode, key);
+      smoothed.dim[key] = damp(smoothed.dim[key], dimTarget ? 1 : 0, dt, 4);
+    });
+    neutronStar.uniforms.coreDim.value = smoothed.dim.neutronStarBody;
+    neutronStar.uniforms.radioDim.value = smoothed.dim.radioBeam;
+    neutronStar.uniforms.gammaDim.value = smoothed.dim.gammaBeam;
+    companion.uniforms.dim.value = smoothed.dim.companion;
+    companion.uniforms.windDim.value = smoothed.dim.ablatedWind;
+    accretionDisk.uniforms.diskDim.value = smoothed.dim.accretionDisk;
+    accretionDisk.uniforms.spotDim.value = smoothed.dim.innerDiskSpot;
+    jets.setDim(smoothed.dim.jets);
+    intrabinaryShock.uniforms.dim.value = smoothed.dim.intrabinaryShock;
 
     smoothed.radioIntensity = damp(smoothed.radioIntensity, t.radioBeam ? target.radioIntensity : 0, dt, 1.5);
     smoothed.gammaIntensity = damp(smoothed.gammaIntensity, t.gammaBeam ? target.gammaIntensity : 0, dt, 1.5);
@@ -115,12 +181,14 @@ export async function createSceneApp(canvas) {
     neutronStar.uniforms.radioIntensity.value = smoothed.radioIntensity;
     neutronStar.uniforms.gammaIntensity.value = smoothed.gammaIntensity;
     neutronStar.uniforms.pulseIntensity.value = 1 + smoothed.accretionBlend * 0.6;
-    neutronStar.setGammaColor(state.mode === 2 ? GAMMA_COLOR_HIGH_MODE : GAMMA_COLOR_DEFAULT);
+    neutronStar.setGammaColor(effectiveMode === 2 ? GAMMA_COLOR_HIGH_MODE : GAMMA_COLOR_DEFAULT);
 
     companion.uniforms.irradiation.value = 0.55 + smoothed.accretionBlend * 0.25;
     companion.uniforms.bulge.value = 0.2 + smoothed.accretionBlend * 0.08;
     companion.uniforms.noseStrength.value = 0.08 + smoothed.accretionBlend * 0.45;
     companion.uniforms.windIntensity.value = t.fireLayer ? 1 : 0;
+    smoothed.irradiationLevel = damp(smoothed.irradiationLevel, state.irradiationLevel, dt, 1.5);
+    companion.uniforms.irradiationLevel.value = smoothed.irradiationLevel;
 
     const diskOpacityTarget = t.accretionDisk ? target.diskOpacity : 0;
     smoothed.diskOpacity = damp(smoothed.diskOpacity, diskOpacityTarget, dt, 1.2);
@@ -130,7 +198,7 @@ export async function createSceneApp(canvas) {
     accretionDisk.uniforms.extent.value = smoothed.diskExtent;
     accretionDisk.uniforms.innerRadius.value = smoothed.diskInnerRadius;
     accretionDisk.uniforms.pulsarSpinAngle.value = neutronStar.getSpinAngle();
-    const innerSpotTarget = t.accretionDisk && state.mode === 2 ? 1 : 0;
+    const innerSpotTarget = t.accretionDisk && effectiveMode === 2 ? 1 : 0;
     smoothed.innerSpotIntensity = damp(smoothed.innerSpotIntensity, innerSpotTarget, dt, 1.2);
     accretionDisk.uniforms.innerSpotIntensity.value = smoothed.innerSpotIntensity;
     // The nose (on the star) always points straight at the pulsar, but the
@@ -157,8 +225,11 @@ export async function createSceneApp(canvas) {
     // Intrabinary shock: only exists while the pulsar wind is actually
     // driving it, i.e. the rotation-powered state.
     companionDir.set(Math.cos(noseAngle), 0, Math.sin(noseAngle));
-    const shockTarget = state.mode === 0 && t.intrabinaryShock ? 0.6 : 0;
-    smoothed.shockOpacity = damp(smoothed.shockOpacity, shockTarget, dt, 1.2);
+    const shockTarget = effectiveMode === 0 && t.intrabinaryShock ? 0.6 : 0;
+    // Fading in (the wind ramping up) reads fine at the normal rate, but
+    // fading out on an untick looked sluggish — snap it away faster.
+    const shockDampSpeed = shockTarget < smoothed.shockOpacity ? 2.6 : 1.2;
+    smoothed.shockOpacity = damp(smoothed.shockOpacity, shockTarget, dt, shockDampSpeed);
     intrabinaryShock.update(companionDir, smoothed.shockOpacity);
 
     const jetTarget = t.jets ? target.jetIntensity : 0;

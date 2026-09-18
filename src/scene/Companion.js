@@ -18,6 +18,7 @@ import {
   oneMinus,
   mx_noise_float,
 } from 'three/tsl';
+import { dimColor } from './filterFx.js';
 
 // The companion is tidally locked, so it always shows the same face to the
 // pulsar (see SceneApp: the mesh is oriented with lookAt each frame). Note
@@ -30,10 +31,19 @@ import {
 export function createCompanion({ radius }) {
   const bulge = uniform(0.22); // tidal elongation strength, 0..~0.4
   const irradiation = uniform(0.6); // 0..1, how strongly pulsar-facing side is heated
+  // User-facing slider multiplier: 0 collapses the whole day/night heating
+  // effect away (a uniform, dark-side-only sphere), 1 reproduces today's
+  // normal irradiated look. Independent of `irradiation` above, which is
+  // driven by the accretion-mode blend instead.
+  const irradiationLevel = uniform(1);
   // How far the pulsar-facing "nose" — the feeder-stream anchor point —
   // pokes out beyond the general tidal bulge, in units of radius. Kept in
   // sync with the plain-JS estimate in SceneApp (see NOSE_REACH below).
   const noseStrength = uniform(0.1);
+  // Emission-filter dimming for the companion's own body ("optical"); the
+  // ablated-wind shell has its own separate dim below, since it never
+  // belongs to any of the filter's highlighted categories.
+  const dim = uniform(0);
 
   const geometry = new THREE.SphereGeometry(radius, 96, 64);
 
@@ -61,7 +71,7 @@ export function createCompanion({ radius }) {
     // Sharp day/night terminator, like a heavily irradiated tidally-locked
     // world: most of the far hemisphere stays cold, and the heating ramps
     // up hard only right around the sub-pulsar point.
-    const heat = smoothstep(-0.45, 0.35, facing).mul(irradiation.add(0.6));
+    const heat = smoothstep(-0.45, 0.35, facing).mul(irradiation.add(0.6)).mul(irradiationLevel);
     const nightColor = color('#3c2415');
     const duskColor = color('#8a2c14');
     const warmColor = color('#ff9a3d');
@@ -73,7 +83,7 @@ export function createCompanion({ radius }) {
 
     const mottled = base.mul(mix(0.85, 1.08, grain));
     const shimmer = time.mul(2.2).sin().mul(0.02).add(1);
-    return mottled.mul(shimmer);
+    return dimColor(mottled.mul(shimmer), dim);
   })();
 
   material.emissiveNode = Fn(() => {
@@ -81,10 +91,26 @@ export function createCompanion({ radius }) {
     // away from the pulsar, so standard diffuse lighting alone renders it
     // as near-black regardless of albedo) — give it a small constant
     // emissive floor so it reads as a dim brown surface, not black.
-    const heat = smoothstep(-0.1, 0.75, facing).mul(irradiation);
+    const heat = smoothstep(-0.1, 0.75, facing).mul(irradiation).mul(irradiationLevel);
     const hotGlow = color('#ffb066').mul(pow(heat, 2)).mul(2.4);
     const nightGlow = color('#5a3a22').mul(0.16);
-    return hotGlow.add(nightGlow);
+
+    // A steady limb glow of the star's own irradiated atmosphere. This is
+    // independent of the ablated-wind shell (own noise field, own always-on
+    // visibility) — just a fixed rim texture with a gentle overall pulse,
+    // not a directional flow.
+    const rimFresnel = pow(oneMinus(clamp(normalView.dot(positionViewDirection), 0, 1)), 2.2);
+    const streak = clamp(mx_noise_float(positionLocal.mul(3.4)).mul(0.5).add(0.5), 0, 1);
+    const pulse = time.mul(1.1).sin().mul(0.15).add(0.85);
+    const limbGlow = color('#ff8a3d')
+      .mul(pow(streak, 2))
+      .mul(rimFresnel)
+      .mul(heat.add(0.25))
+      .mul(pulse)
+      .mul(1.6)
+      .mul(irradiationLevel);
+
+    return dimColor(hotGlow.add(nightGlow).add(limbGlow), dim);
   })();
 
   const mesh = new THREE.Mesh(geometry, material);
@@ -97,6 +123,9 @@ export function createCompanion({ radius }) {
   // blowing *from* the pulsar-facing side back across the surface.
   const windIntensity = uniform(1); // toggle: 0 = off, 1 = on
   const windSpeed = uniform(0.3);
+  // The ablated wind never belongs to any filter band's highlighted set, so
+  // it's dimmed whenever a filter is active at all, independent of `dim`.
+  const windDim = uniform(0);
 
   const windMaterial = new THREE.MeshBasicNodeMaterial({
     transparent: true,
@@ -141,7 +170,7 @@ export function createCompanion({ radius }) {
     const fireHot = color('#ffe066');
     let fire = mix(fireCool, fireMid, turbulence);
     fire = mix(fire, fireHot, pow(clamp(turbulence.mul(heat.add(0.3)), 0, 1), 2));
-    return fire.mul(heat.add(0.2));
+    return dimColor(fire.mul(heat.add(0.2)), windDim);
   })();
 
   windMaterial.opacityNode = Fn(() => {
@@ -161,7 +190,7 @@ export function createCompanion({ radius }) {
 
   return {
     object3D: mesh,
-    uniforms: { bulge, irradiation, noseStrength, windIntensity, windSpeed },
+    uniforms: { bulge, irradiation, irradiationLevel, noseStrength, windIntensity, windSpeed, dim, windDim },
   };
 }
 

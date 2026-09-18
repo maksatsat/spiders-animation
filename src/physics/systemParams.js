@@ -6,8 +6,8 @@
 
 export const SYSTEM = {
   name: 'PSR J1023+0038',
-  nickname: 'the Transformer',
-  distanceLy: 4400,
+  nickname: 'transitional pulsar',
+  distance_kpc: 1.37,
   orbitalPeriodHours: 4.75,
   pulsarMassSolar: 1.7,
   companionMassSolar: 0.2,
@@ -42,9 +42,8 @@ export const MODE_TARGETS = [
     jetIntensity: 0,
     jetColorMix: 0.55,
     radioLuminosity: 1,
-    gammaLuminosity: 0.35,
-    xrayLuminosity: 0.12,
-    massTransferRate: 0.04,
+    gammaLuminosity: 0.1,
+    xrayLuminosity: 0.1,
   },
   {
     label: 'Low X-ray mode (disk just outside the light cylinder)',
@@ -57,9 +56,8 @@ export const MODE_TARGETS = [
     jetIntensity: 0.9,
     jetColorMix: 0, // pure white outgoing animation in low mode
     radioLuminosity: 0.15,
-    gammaLuminosity: 0.55,
-    xrayLuminosity: 0.5,
-    massTransferRate: 0.5,
+    gammaLuminosity: 1,
+    xrayLuminosity: 0.2,
   },
   {
     label: 'High X-ray mode (disk inside the light cylinder)',
@@ -72,8 +70,7 @@ export const MODE_TARGETS = [
     jetIntensity: 0.9,
     jetColorMix: 0.55, // existing pink/white animation, unchanged in high mode
     radioLuminosity: 0.02,
-    gammaLuminosity: 1,
+    gammaLuminosity: 0.26,
     xrayLuminosity: 1,
-    massTransferRate: 0.85,
   },
 ];

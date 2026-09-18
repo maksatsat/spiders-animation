@@ -1,5 +1,6 @@
 import * as THREE from 'three/webgpu';
 import { Fn, uniform, color, mix, positionLocal, time, clamp, fract, pow, sin, oneMinus, smoothstep } from 'three/tsl';
+import { dimColor } from './filterFx.js';
 
 const LENGTH = 5.5;
 const RADIUS = 0.13;
@@ -22,6 +23,7 @@ function makeJet(direction, baseOffset) {
   const intensity = uniform(0);
   const extent = uniform(0.001);
   const colorMix = uniform(0.55); // 0 = pure white (low mode), 0.55 = pink/white (high mode)
+  const dim = uniform(0); // emission-filter dimming
 
   material.colorNode = Fn(() => {
     const t = clamp(positionLocal.y.div(LENGTH), 0, 1);
@@ -30,7 +32,7 @@ function makeJet(direction, baseOffset) {
     const fade = pow(oneMinus(t), 0.7);
     const base = mix(color('#ffffff'), color('#ff54dc'), colorMix);
     const glow = fade.mul(0.5).add(knot.mul(fade).mul(2.2)).mul(intensity);
-    return base.mul(glow);
+    return dimColor(base.mul(glow), dim);
   })();
 
   material.opacityNode = Fn(() => {
@@ -43,7 +45,7 @@ function makeJet(direction, baseOffset) {
   const mesh = new THREE.Mesh(geometry, material);
   mesh.position.y = baseOffset * direction;
   if (direction < 0) mesh.rotation.x = Math.PI;
-  return { mesh, uniforms: { intensity, extent, colorMix } };
+  return { mesh, uniforms: { intensity, extent, colorMix, dim } };
 }
 
 export function createJets({ baseOffset = 0.4 } = {}) {
@@ -65,6 +67,10 @@ export function createJets({ baseOffset = 0.4 } = {}) {
     setColorMix(v) {
       up.uniforms.colorMix.value = v;
       down.uniforms.colorMix.value = v;
+    },
+    setDim(v) {
+      up.uniforms.dim.value = v;
+      down.uniforms.dim.value = v;
     },
   };
 }

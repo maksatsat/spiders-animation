@@ -8,6 +8,7 @@ export const MODES = [
   { id: 'rotation', label: 'Rotation-powered' },
   { id: 'accretion-low', label: 'Low X-ray mode' },
   { id: 'accretion-high', label: 'High X-ray mode' },
+  { id: 'mode-switching', label: 'Mode switching' },
 ];
 
 export const state = {
@@ -16,6 +17,11 @@ export const state = {
   spinSpeed: 1, // multiplier on the pulsar's base spin rate
   mode: 0, // index into MODES
   view: 'orbital', // 'earth' | 'orbital' | 'top' | 'free'
+  modeSwitchPhase: 2, // which sub-mode (1 = low, 2 = high) is live while mode === "mode-switching"
+  orbitalCycle: 0, // unbounded orbital cycle count (fractional), mirrors SceneApp's orbit clock
+  irradiationLevel: 1, // 0..1, rotation-powered-only slider: 0 = uniform dark companion, 1 = irradiated as normal
+  phaseResetToken: 0, // bumped by the "reset to phase 0" camera action; SceneApp watches for changes
+  filterBand: null, // null | 'radio' | 'optical' | 'xray' | 'gamma' — emission-band highlight filter
   toggles: {
     radioBeam: true,
     gammaBeam: true,

@@ -5,6 +5,11 @@ const BOOKMARKS = {
   earth: { position: new THREE.Vector3(13.5, 1.6, 1.5), target: new THREE.Vector3(0, 0, 0) },
   orbital: { position: new THREE.Vector3(6.5, 2.8, 9.5), target: new THREE.Vector3(0, 0, 0) },
   top: { position: new THREE.Vector3(0.001, 15.5, 0.001), target: new THREE.Vector3(0, 0, 0) },
+  // Exactly edge-on to the orbital plane (y=0) and aligned with the axis the
+  // "reset to phase 0" action puts the conjunction on, so the companion
+  // reads as side-on at phase 0 and would visibly pass in front of/behind
+  // the pulsar a quarter orbit later, at phase 0.25.
+  eclipse: { position: new THREE.Vector3(13.5, 0, 0), target: new THREE.Vector3(0, 0, 0) },
 };
 
 function easeInOutCubic(x) {
