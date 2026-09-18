@@ -1,5 +1,6 @@
 import * as THREE from 'three/webgpu';
 import { Fn, uniform, color, mix, positionLocal, time, clamp, fract, pow, sin, oneMinus, smoothstep } from 'three/tsl';
+import { dimColor } from './filterFx.js';
 
 // A coherent, bright feeder stream bridging the companion's tidal "nose" to
 // the accretion disk's current edge — the visible L1-point mass-transfer
@@ -12,6 +13,7 @@ const RADIUS_NEAR_DISK = 0.035;
 
 export function createAccretionStream() {
   const opacity = uniform(0);
+  const dim = uniform(0); // emission-filter dimming
 
   const geometry = new THREE.CylinderGeometry(RADIUS_NEAR_DISK, RADIUS_NEAR_STAR, 1, 20, 12, true);
   geometry.translate(0, 0.5, 0); // spans local y=0 (star end) to y=1 (disk end)
@@ -34,7 +36,7 @@ export function createAccretionStream() {
     const band = pow(sin(flow.mul(Math.PI)), 6).mul(0.6);
 
     // Dims as it approaches the disk, on top of the geometric taper.
-    return base.mul(oneMinus(t.mul(0.5)).add(band));
+    return dimColor(base.mul(oneMinus(t.mul(0.5)).add(band)), dim);
   })();
 
   material.opacityNode = Fn(() => {
@@ -65,5 +67,5 @@ export function createAccretionStream() {
     opacity.value = targetOpacity;
   }
 
-  return { object3D: mesh, update };
+  return { object3D: mesh, update, uniforms: { dim } };
 }

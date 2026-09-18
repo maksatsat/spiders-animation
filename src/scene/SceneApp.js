@@ -93,6 +93,7 @@ export async function createSceneApp(canvas) {
       innerDiskSpot: 0,
       jets: 0,
       intrabinaryShock: 0,
+      accretionStream: 0,
     },
   };
 
@@ -174,6 +175,7 @@ export async function createSceneApp(canvas) {
     accretionDisk.uniforms.spotDim.value = smoothed.dim.innerDiskSpot;
     jets.setDim(smoothed.dim.jets);
     intrabinaryShock.uniforms.dim.value = smoothed.dim.intrabinaryShock;
+    accretionStream.uniforms.dim.value = smoothed.dim.accretionStream;
 
     smoothed.radioIntensity = damp(smoothed.radioIntensity, t.radioBeam ? target.radioIntensity : 0, dt, 1.5);
     smoothed.gammaIntensity = damp(smoothed.gammaIntensity, t.gammaBeam ? target.gammaIntensity : 0, dt, 1.5);

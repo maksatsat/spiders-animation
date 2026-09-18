@@ -10,14 +10,14 @@ const FILTER_SOURCES = {
     2: ['jets'],
   },
   optical: {
-    0: ['companion', 'accretionDisk', 'innerDiskSpot'],
-    1: ['companion', 'accretionDisk', 'innerDiskSpot'],
-    2: ['companion', 'accretionDisk', 'innerDiskSpot'],
+    0: ['companion', 'accretionDisk', 'innerDiskSpot', 'accretionStream'],
+    1: ['companion', 'accretionDisk', 'innerDiskSpot', 'accretionStream'],
+    2: ['companion', 'accretionDisk', 'innerDiskSpot', 'accretionStream'],
   },
   xray: {
     0: ['intrabinaryShock', 'neutronStarBody'],
-    1: ['neutronStarBody', 'accretionDisk', 'innerDiskSpot', 'jets'],
-    2: ['neutronStarBody', 'accretionDisk', 'innerDiskSpot', 'jets'],
+    1: ['neutronStarBody', 'accretionDisk', 'innerDiskSpot', 'jets', 'accretionStream'],
+    2: ['neutronStarBody', 'accretionDisk', 'innerDiskSpot', 'jets', 'accretionStream'],
   },
   gamma: {
     0: ['gammaBeam'],
