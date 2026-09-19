@@ -15,7 +15,7 @@ const REACH = 0.9; // stretches the dome further out along its axis toward the c
 export function createIntrabinaryShock() {
   const opacity = uniform(0);
   const ringSpeed = uniform(1.1); // how fast each ripple travels from the nose to the rim
-  const ringDensity = 4.5; // how many ripples are visible across the dome at once
+  const ringDensity = 8.5; // how many ripples are visible across the dome at once
   const dim = uniform(0); // emission-filter dimming
 
   const geometry = new THREE.SphereGeometry(RADIUS, 48, 32, 0, Math.PI * 2, 0, Math.PI / 2);
@@ -45,15 +45,15 @@ export function createIntrabinaryShock() {
     const shimmer = mx_noise_float(positionLocal.mul(2.2).add(time.mul(0.15))).mul(0.15).add(0.85);
     const indigo = color('#4b3fb0');
     const bright = color('#8f8bff');
-    const ringGlow = color('#ffffff');
+    const ringGlow = color('#9fd8ff');
     const glow = indigo.add(bright.mul(rim)).mul(shimmer);
     return dimColor(glow.add(ringGlow.mul(outwardGlow()).mul(rim.add(0.3))), dim);
   })();
 
   material.opacityNode = Fn(() => {
     const rim = pow(oneMinus(clamp(normalView.dot(positionViewDirection), 0, 1)), 1.6);
-    const base = rim.mul(0.55).add(0.12);
-    return base.add(outwardGlow().mul(rim).mul(0.35)).mul(opacity).clamp(0, 1);
+    const base = rim.mul(0.3).add(0.05);
+    return base.add(outwardGlow().mul(rim).mul(0.22)).mul(opacity).clamp(0, 1);
   })();
 
   const mesh = new THREE.Mesh(geometry, material);

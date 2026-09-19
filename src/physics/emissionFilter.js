@@ -21,7 +21,7 @@ const FILTER_SOURCES = {
   },
   gamma: {
     0: ['gammaBeam'],
-    1: ['jets'],
+    1: ['jets', 'propellerShock'],
     2: ['jets', 'innerDiskSpot', 'gammaBeam'],
   },
 };
@@ -33,7 +33,10 @@ export const FILTER_BANDS = [
   { id: 'gamma', label: 'Gamma-ray' },
 ];
 
-export function isHighlighted(band, effectiveMode, sourceKey) {
-  const sources = FILTER_SOURCES[band] && FILTER_SOURCES[band][effectiveMode];
-  return !!sources && sources.includes(sourceKey);
+export function isHighlighted(bands, effectiveMode, sourceKey) {
+  for (const band of bands) {
+    const sources = FILTER_SOURCES[band] && FILTER_SOURCES[band][effectiveMode];
+    if (sources && sources.includes(sourceKey)) return true;
+  }
+  return false;
 }

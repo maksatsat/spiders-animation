@@ -21,7 +21,7 @@ export const state = {
   orbitalCycle: 0, // unbounded orbital cycle count (fractional), mirrors SceneApp's orbit clock
   irradiationLevel: 1, // 0..1, rotation-powered-only slider: 0 = uniform dark companion, 1 = irradiated as normal
   phaseResetToken: 0, // bumped by the "reset to phase 0" camera action; SceneApp watches for changes
-  filterBand: null, // null | 'radio' | 'optical' | 'xray' | 'gamma' — emission-band highlight filter
+  filterBands: new Set(), // subset of 'radio' | 'optical' | 'xray' | 'gamma' — emission-band highlight filter; empty = no filter
   toggles: {
     radioBeam: true,
     gammaBeam: true,
@@ -47,5 +47,19 @@ export function setState(patch) {
 
 export function setToggle(key, value) {
   state.toggles[key] = value;
+  listeners.forEach((fn) => fn(state));
+}
+
+export function toggleFilterBand(bandId) {
+  if (state.filterBands.has(bandId)) {
+    state.filterBands.delete(bandId);
+  } else {
+    state.filterBands.add(bandId);
+  }
+  listeners.forEach((fn) => fn(state));
+}
+
+export function setFilterBands(bandIds) {
+  state.filterBands = new Set(bandIds);
   listeners.forEach((fn) => fn(state));
 }

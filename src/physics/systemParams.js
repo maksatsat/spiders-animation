@@ -41,6 +41,7 @@ export const MODE_TARGETS = [
     diskOuterExtent: 0,
     jetIntensity: 0,
     jetColorMix: 0.55,
+    jetBaseColor: '#ffffff',
     radioLuminosity: 1,
     gammaLuminosity: 0.1,
     xrayLuminosity: 0.1,
@@ -54,7 +55,8 @@ export const MODE_TARGETS = [
     diskInnerRadius: 0.35,
     diskOuterExtent: 0.85,
     jetIntensity: 0.9,
-    jetColorMix: 0, // pure white outgoing animation in low mode
+    jetColorMix: 0, // pure color outgoing animation in low mode
+    jetBaseColor: '#7dffb8', // green, distinct from high mode's white/pink
     radioLuminosity: 0.15,
     gammaLuminosity: 1,
     xrayLuminosity: 0.2,
@@ -69,6 +71,7 @@ export const MODE_TARGETS = [
     diskOuterExtent: 0.92,
     jetIntensity: 0.9,
     jetColorMix: 0.55, // existing pink/white animation, unchanged in high mode
+    jetBaseColor: '#ffffff',
     radioLuminosity: 0.02,
     gammaLuminosity: 0.26,
     xrayLuminosity: 1,

@@ -16,6 +16,7 @@ import { createAccretionDisk } from './AccretionDisk.js';
 import { createAccretionStream } from './AccretionStream.js';
 import { createJets } from './Jets.js';
 import { createIntrabinaryShock } from './IntrabinaryShock.js';
+import { createPropellerShock } from './PropellerShock.js';
 import { createCameraRig } from './CameraRig.js';
 
 const GAMMA_COLOR_DEFAULT = '#ff33d6';
@@ -24,6 +25,37 @@ const SWITCHING_MODE = MODES.findIndex((m) => m.id === 'mode-switching');
 function damp(current, target, dt, speed) {
   const a = 1 - Math.exp(-speed * dt);
   return current + (target - current) * a;
+}
+
+function smoothstep01(t) {
+  const c = THREE.MathUtils.clamp(t, 0, 1);
+  return c * c * (3 - 2 * c);
+}
+
+// How much the companion's ablated wind currently blocks the radio beam:
+// 0 = clear line of sight to the pulsar, 1 = fully eclipsed. Evaluated once
+// per frame from the *pulsar's* position (not per-beam-fragment — see
+// NeutronStar.js for why that doesn't work), using the same
+// perpendicular-distance-to-the-view-ray test a real eclipse would need.
+function computeRadioEclipse(cameraPos, pulsarPos, companionPos, occluderRadius, tmp) {
+  tmp.rayDir.copy(pulsarPos).sub(cameraPos);
+  const fragDist = tmp.rayDir.length();
+  if (fragDist < 1e-6) return 0;
+  tmp.rayDir.multiplyScalar(1 / fragDist);
+  tmp.toOccluder.copy(companionPos).sub(cameraPos);
+  const along = tmp.toOccluder.dot(tmp.rayDir);
+  tmp.closest.copy(cameraPos).addScaledVector(tmp.rayDir, along);
+  const lineOfSightDist = companionPos.distanceTo(tmp.closest);
+  const clearAt = occluderRadius;
+  const blockedAt = occluderRadius * 0.1;
+  const aligned = 1 - smoothstep01((lineOfSightDist - blockedAt) / (clearAt - blockedAt));
+  // Alignment alone isn't enough — the companion also has to actually be the
+  // nearer of the two along this ray, or a pulsar sitting safely in front of
+  // a distant companion would read as eclipsed too. Gradual over ~1.5
+  // companion-radii either side of the crossover, to match the fade above.
+  const frontSpan = occluderRadius * 1.5;
+  const inFront = smoothstep01((fragDist - along + frontSpan) / (2 * frontSpan));
+  return aligned * inFront;
 }
 
 export async function createSceneApp(canvas) {
@@ -43,6 +75,9 @@ export async function createSceneApp(canvas) {
 
   const neutronStar = createNeutronStar({ radius: SCENE.pulsarRadius, beamLength: 3.1 });
   scene.add(neutronStar.object3D);
+  // How close (world units) the camera's line of sight to the pulsar has to
+  // pass to the companion's center to read as eclipsed by its ablated wind.
+  const RADIO_OCCLUDER_RADIUS = SCENE.companionRadius * 3.4;
 
   const companion = createCompanion({ radius: SCENE.companionRadius });
   scene.add(companion.object3D);
@@ -58,6 +93,9 @@ export async function createSceneApp(canvas) {
 
   const intrabinaryShock = createIntrabinaryShock();
   neutronStar.object3D.add(intrabinaryShock.object3D);
+
+  const propellerShock = createPropellerShock();
+  neutronStar.object3D.add(propellerShock.object3D);
 
   const cameraRig = createCameraRig(canvas);
   cameraRig.goTo(state.view);
@@ -83,6 +121,8 @@ export async function createSceneApp(canvas) {
     shockOpacity: 0,
     innerSpotIntensity: 0,
     irradiationLevel: state.irradiationLevel,
+    propellerShockOpacity: 0,
+    occluderStrength: 0,
     dim: {
       neutronStarBody: 0,
       radioBeam: 0,
@@ -94,6 +134,7 @@ export async function createSceneApp(canvas) {
       jets: 0,
       intrabinaryShock: 0,
       accretionStream: 0,
+      propellerShock: 0,
     },
   };
 
@@ -128,6 +169,7 @@ export async function createSceneApp(canvas) {
   const noseTip = new THREE.Vector3();
   const diskEdge = new THREE.Vector3();
   const companionDir = new THREE.Vector3();
+  const eclipseTmp = { rayDir: new THREE.Vector3(), toOccluder: new THREE.Vector3(), closest: new THREE.Vector3() };
 
   function tick(dt) {
     const dtSim = state.playing ? dt * state.timeScale : 0;
@@ -154,16 +196,17 @@ export async function createSceneApp(canvas) {
     const target = MODE_TARGETS[effectiveMode];
     const t = state.toggles;
 
-    // Emission-band filter: anything not part of the selected band's
+    // Emission-band filter: anything not part of any selected band's
     // highlighted sources for the current mode fades to grayscale. The
     // ablated wind never belongs to any band, so it dims whenever a filter
-    // is active at all.
-    const filterActive = !!state.filterBand;
+    // is active at all. Multiple bands can be selected at once, so a source
+    // stays lit as long as it's highlighted by at least one of them.
+    const filterActive = state.filterBands.size > 0;
     Object.keys(smoothed.dim).forEach((key) => {
       const dimTarget =
         key === 'ablatedWind'
           ? filterActive
-          : filterActive && !isHighlighted(state.filterBand, effectiveMode, key);
+          : filterActive && !isHighlighted(state.filterBands, effectiveMode, key);
       smoothed.dim[key] = damp(smoothed.dim[key], dimTarget ? 1 : 0, dt, 4);
     });
     neutronStar.uniforms.coreDim.value = smoothed.dim.neutronStarBody;
@@ -176,6 +219,7 @@ export async function createSceneApp(canvas) {
     jets.setDim(smoothed.dim.jets);
     intrabinaryShock.uniforms.dim.value = smoothed.dim.intrabinaryShock;
     accretionStream.uniforms.dim.value = smoothed.dim.accretionStream;
+    propellerShock.uniforms.dim.value = smoothed.dim.propellerShock;
 
     smoothed.radioIntensity = damp(smoothed.radioIntensity, t.radioBeam ? target.radioIntensity : 0, dt, 1.5);
     smoothed.gammaIntensity = damp(smoothed.gammaIntensity, t.gammaBeam ? target.gammaIntensity : 0, dt, 1.5);
@@ -189,8 +233,22 @@ export async function createSceneApp(canvas) {
     companion.uniforms.bulge.value = 0.2 + smoothed.accretionBlend * 0.08;
     companion.uniforms.noseStrength.value = 0.08 + smoothed.accretionBlend * 0.45;
     companion.uniforms.windIntensity.value = t.fireLayer ? 1 : 0;
-    smoothed.irradiationLevel = damp(smoothed.irradiationLevel, state.irradiationLevel, dt, 1.5);
+    // In the accretion modes the disk itself is bathing the companion in
+    // X-rays regardless of what the (rotation-powered-only) irradiation
+    // slider is set to, so it always reads as maximally heated there.
+    const irradiationLevelTarget = effectiveMode === 0 ? state.irradiationLevel : 1;
+    smoothed.irradiationLevel = damp(smoothed.irradiationLevel, irradiationLevelTarget, dt, 1.5);
     companion.uniforms.irradiationLevel.value = smoothed.irradiationLevel;
+
+    // The radio beam reads as blocked by the companion's ablated wind
+    // whenever the pulsar itself is behind the companion from the current
+    // camera (see NeutronStar.js and computeRadioEclipse above) — but only
+    // while that wind layer is actually on.
+    const eclipseTarget = t.fireLayer
+      ? computeRadioEclipse(cameraRig.camera.position, pulsarWorldPos, companion.object3D.position, RADIO_OCCLUDER_RADIUS, eclipseTmp)
+      : 0;
+    smoothed.occluderStrength = damp(smoothed.occluderStrength, eclipseTarget, dt, 3);
+    neutronStar.uniforms.radioOcclusion.value = smoothed.occluderStrength;
 
     const diskOpacityTarget = t.accretionDisk ? target.diskOpacity : 0;
     smoothed.diskOpacity = damp(smoothed.diskOpacity, diskOpacityTarget, dt, 1.2);
@@ -200,6 +258,13 @@ export async function createSceneApp(canvas) {
     accretionDisk.uniforms.extent.value = smoothed.diskExtent;
     accretionDisk.uniforms.innerRadius.value = smoothed.diskInnerRadius;
     accretionDisk.uniforms.pulsarSpinAngle.value = neutronStar.getSpinAngle();
+
+    // Gamma-ray-emitting cavity between the star and the (still-truncated)
+    // inner disk edge, low mode only — the pulsar wind hasn't fully shut
+    // off there, unlike in the high mode.
+    const propellerShockTarget = effectiveMode === 1 && t.gammaBeam ? 0.7 : 0;
+    smoothed.propellerShockOpacity = damp(smoothed.propellerShockOpacity, propellerShockTarget, dt, 1.5);
+    propellerShock.update(smoothed.diskInnerRadius, smoothed.propellerShockOpacity);
     const innerSpotTarget = t.accretionDisk && effectiveMode === 2 ? 1 : 0;
     smoothed.innerSpotIntensity = damp(smoothed.innerSpotIntensity, innerSpotTarget, dt, 1.2);
     accretionDisk.uniforms.innerSpotIntensity.value = smoothed.innerSpotIntensity;
@@ -240,6 +305,7 @@ export async function createSceneApp(canvas) {
     jets.setIntensity(smoothed.jetIntensity);
     jets.setExtent(smoothed.jetExtent);
     jets.setColorMix(target.jetColorMix);
+    jets.setBaseColor(target.jetBaseColor);
 
     starfield.rotation.y += dt * 0.0015;
 

@@ -17,6 +17,7 @@ import {
   smoothstep,
   oneMinus,
   mx_noise_float,
+  max,
 } from 'three/tsl';
 import { dimColor } from './filterFx.js';
 
@@ -44,6 +45,14 @@ export function createCompanion({ radius }) {
   // ablated-wind shell has its own separate dim below, since it never
   // belongs to any of the filter's highlighted categories.
   const dim = uniform(0);
+
+  // Shared with the wind shell below (declared here so the surface's own
+  // advection glow, built before the shell, can reference the same speed).
+  const windIntensity = uniform(1); // toggle: 0 = off, 1 = on
+  const windSpeed = uniform(0.3);
+  // The ablated wind never belongs to any filter band's highlighted set, so
+  // it's dimmed whenever a filter is active at all, independent of `dim`.
+  const windDim = uniform(0);
 
   const geometry = new THREE.SphereGeometry(radius, 96, 64);
 
@@ -91,7 +100,13 @@ export function createCompanion({ radius }) {
     // away from the pulsar, so standard diffuse lighting alone renders it
     // as near-black regardless of albedo) — give it a small constant
     // emissive floor so it reads as a dim brown surface, not black.
-    const heat = smoothstep(-0.1, 0.75, facing).mul(irradiation).mul(irradiationLevel);
+    //
+    // The glow itself never fully switches off with the irradiation slider —
+    // even a "dark", non-irradiated star should still read as weakly
+    // glowing, not inert — so the heat-driven glow terms use a floored
+    // version of irradiationLevel instead of the raw 0..1 value.
+    const glowLevel = irradiationLevel.mul(0.85).add(0.15);
+    const heat = smoothstep(-0.1, 0.75, facing).mul(irradiation).mul(glowLevel);
     const hotGlow = color('#ffb066').mul(pow(heat, 2)).mul(2.4);
     const nightGlow = color('#5a3a22').mul(0.16);
 
@@ -108,9 +123,26 @@ export function createCompanion({ radius }) {
       .mul(heat.add(0.25))
       .mul(pulse)
       .mul(1.6)
-      .mul(irradiationLevel);
+      .mul(glowLevel);
 
-    return dimColor(hotGlow.add(nightGlow).add(limbGlow), dim);
+    // Advection glow: bright filaments of ablated material visibly carried
+    // across the surface away from the sub-pulsar point, baked directly onto
+    // the body itself (not just the separate wind shell) so the flow still
+    // reads even with that layer toggled off. Same advection trick as the
+    // wind shell below — sample noise offset along local +Z by time, which
+    // makes the pattern appear to stream backward across the surface, away
+    // from the pulsar-facing nose.
+    const advectSample = positionLocal.add(vec3(0, 0, 1).mul(time.mul(windSpeed)));
+    const advectN1 = mx_noise_float(advectSample.mul(3.4));
+    const advectN2 = mx_noise_float(advectSample.mul(7.5).add(6.0));
+    const advectFlow = clamp(advectN1.mul(0.6).add(advectN2.mul(0.4)).mul(0.5).add(0.5), 0, 1);
+    const advectionGlow = color('#ffc073')
+      .mul(pow(advectFlow, 4))
+      .mul(heat.add(0.15))
+      .mul(glowLevel)
+      .mul(2.6);
+
+    return dimColor(hotGlow.add(nightGlow).add(limbGlow).add(advectionGlow), dim);
   })();
 
   const mesh = new THREE.Mesh(geometry, material);
@@ -121,12 +153,6 @@ export function createCompanion({ radius }) {
   // advected along local +Z (toward the pulsar) each frame, which makes
   // the pattern visually stream in the opposite direction — i.e. wind
   // blowing *from* the pulsar-facing side back across the surface.
-  const windIntensity = uniform(1); // toggle: 0 = off, 1 = on
-  const windSpeed = uniform(0.3);
-  // The ablated wind never belongs to any filter band's highlighted set, so
-  // it's dimmed whenever a filter is active at all, independent of `dim`.
-  const windDim = uniform(0);
-
   const windMaterial = new THREE.MeshBasicNodeMaterial({
     transparent: true,
     depthWrite: false,
@@ -181,8 +207,16 @@ export function createCompanion({ radius }) {
 
     const heat = smoothstep(-0.7, 0.5, facing).mul(irradiation.add(0.3));
     const rimFresnel = pow(oneMinus(clamp(normalView.dot(positionViewDirection), 0, 1)), 2);
+    const glowOpacity = heat.mul(turbulence).mul(0.85).add(rimFresnel.mul(heat).mul(0.4));
 
-    return heat.mul(turbulence).mul(0.85).add(rimFresnel.mul(heat).mul(0.4)).mul(windIntensity).clamp(0, 1);
+    // Real ablated material is densest right where it's being blown off the
+    // star and thins out into the flared wake — so opacity floors out near
+    // full close to the star's own surface, fading with distance from it.
+    const windFacing = normalLocal.z;
+    const distFromStar = clamp(oneMinus(windFacing).mul(0.5), 0, 1); // 0 at the surface, 1 at the far, flared wake
+    const surfaceOpacity = pow(oneMinus(distFromStar), 1.5).mul(0.9);
+
+    return max(glowOpacity, surfaceOpacity).mul(windIntensity).clamp(0, 1);
   })();
 
   const windLayer = new THREE.Mesh(new THREE.SphereGeometry(radius, 96, 64), windMaterial);

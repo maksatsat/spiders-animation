@@ -127,9 +127,9 @@ export function createAccretionDisk() {
     // spin, not minus) while staying locked to the same period as the
     // pulsar — same clock, mirrored direction.
     const distPastInner = r.sub(innerRadius);
-    const innerBand = pow(oneMinus(clamp(abs(distPastInner.sub(0.4)).div(0.22), 0, 1)), 2);
-    const spotA = pow(max(cos(angle.add(pulsarSpinAngle)), 0), 10);
-    const spotB = pow(max(cos(angle.add(pulsarSpinAngle).sub(Math.PI)), 0), 10);
+    const innerBand = pow(oneMinus(clamp(abs(distPastInner.sub(0.4)).div(0.16), 0, 1)), 2);
+    const spotA = pow(max(cos(angle.add(pulsarSpinAngle)), 0), 16);
+    const spotB = pow(max(cos(angle.add(pulsarSpinAngle).sub(Math.PI)), 0), 16);
     const innerSpots = innerBand.mul(spotA.add(spotB)).mul(innerSpotIntensity).mul(24);
 
     const bodyColor = tempColor

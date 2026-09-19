@@ -24,14 +24,14 @@ const GAMMA_COLOR = '#ff33d6';
 export const GAMMA_COLOR_HIGH_MODE = '#4fb3ff'; // "pulsar wind" styling in high X-ray mode
 const OBLIQUITY = THREE.MathUtils.degToRad(34);
 
-function makeBeamCone(length, baseRadius, colorHex, intensityNode, dimNode) {
+function makeBeamCone(beamLength, baseRadius, colorHex, intensityNode, dimNode, occlusionNode) {
   // THREE.ConeGeometry puts its apex at +height/2 and its (wide) base at
   // -height/2; flip it so the apex sits at local origin and the cone flares
   // outward toward +Y — a proper lighthouse beam widening away from the star,
   // not a wedge that's widest at the source.
-  const geometry = new THREE.ConeGeometry(baseRadius, length, 24, 1, true);
+  const geometry = new THREE.ConeGeometry(baseRadius, beamLength, 24, 1, true);
   geometry.rotateX(Math.PI);
-  geometry.translate(0, length / 2, 0);
+  geometry.translate(0, beamLength / 2, 0);
 
   const material = new THREE.MeshBasicNodeMaterial({
     transparent: true,
@@ -43,7 +43,7 @@ function makeBeamCone(length, baseRadius, colorHex, intensityNode, dimNode) {
   const beamColor = uniform(new THREE.Color(colorHex));
 
   material.colorNode = Fn(() => {
-    const t = clamp(positionLocal.y.div(length), 0, 1);
+    const t = clamp(positionLocal.y.div(beamLength), 0, 1);
     const lengthFade = pow(oneMinus(t), 3.2);
     const rim = pow(oneMinus(clamp(normalView.dot(positionViewDirection), 0, 1)), 2);
     const glow = lengthFade.mul(0.7).add(rim.mul(0.3)).mul(intensityNode);
@@ -51,8 +51,25 @@ function makeBeamCone(length, baseRadius, colorHex, intensityNode, dimNode) {
   })();
 
   material.opacityNode = Fn(() => {
-    const t = clamp(positionLocal.y.div(length), 0, 1);
-    return pow(oneMinus(t), 2.4).mul(intensityNode).clamp(0, 1);
+    const t = clamp(positionLocal.y.div(beamLength), 0, 1);
+    let opacity = pow(oneMinus(t), 2.4).mul(intensityNode);
+    if (occlusionNode) {
+      // How much the companion's ablated wind is blocking the radio beam
+      // right now — a single whole-beam factor (0 = clear, 1 = fully
+      // blocked) computed once per frame from the pulsar's own position
+      // relative to the companion and camera, not per-fragment. A
+      // per-fragment ray test only dims whichever narrow sliver of the beam
+      // cone happens to sit near the companion at the current spin angle,
+      // which (with the beam confined to a ~34° cone around the spin axis,
+      // rarely aimed anywhere near the companion's mostly-horizontal
+      // direction) almost never lines up — so the beam read as unblocked
+      // even with the pulsar plainly sitting behind the companion. Blocking
+      // the whole beam whenever the *star* is behind the companion matches
+      // what's actually happening: no radio gets out in that direction at
+      // all, regardless of which way the beam cone currently points.
+      opacity = opacity.mul(oneMinus(occlusionNode));
+    }
+    return opacity.clamp(0, 1);
   })();
 
   return { mesh: new THREE.Mesh(geometry, material), colorUniform: beamColor };
@@ -70,6 +87,13 @@ export function createNeutronStar({ radius, beamLength }) {
   const coreDim = uniform(0);
   const radioDim = uniform(0);
   const gammaDim = uniform(0);
+
+  // The companion's ablated wind reads as visually blocking the radio beam
+  // (but not the gamma beam — see makeBeamCone) whenever the pulsar itself
+  // is behind the companion from the current camera. Computed once per frame
+  // in SceneApp (see there for why per-fragment ray tracing doesn't work)
+  // and applied as a single 0..1 factor across the whole beam.
+  const radioOcclusion = uniform(0);
 
   // Core: small, always-bright, fresnel-rimmed sphere, with two flared hot
   // spots marking where the beams actually leave the star (the magnetic
@@ -102,9 +126,9 @@ export function createNeutronStar({ radius, beamLength }) {
   // the intersection seam sparkles/z-fights as the star spins.
   const poleOffset = radius * 0.95;
 
-  const radioTop = makeBeamCone(beamLength, radius * 1.1, RADIO_COLOR, radioIntensity, radioDim);
+  const radioTop = makeBeamCone(beamLength, radius * 1.1, RADIO_COLOR, radioIntensity, radioDim, radioOcclusion);
   radioTop.mesh.position.y = poleOffset;
-  const radioBottom = makeBeamCone(beamLength, radius * 1.1, RADIO_COLOR, radioIntensity, radioDim);
+  const radioBottom = makeBeamCone(beamLength, radius * 1.1, RADIO_COLOR, radioIntensity, radioDim, radioOcclusion);
   radioBottom.mesh.position.y = -poleOffset;
   radioBottom.mesh.rotation.x = Math.PI;
 
@@ -123,7 +147,15 @@ export function createNeutronStar({ radius, beamLength }) {
   return {
     object3D: group,
     light,
-    uniforms: { radioIntensity, gammaIntensity, pulseIntensity, coreDim, radioDim, gammaDim },
+    uniforms: {
+      radioIntensity,
+      gammaIntensity,
+      pulseIntensity,
+      coreDim,
+      radioDim,
+      gammaDim,
+      radioOcclusion,
+    },
     setGammaColor(hex) {
       gammaTop.colorUniform.value.set(hex);
       gammaBottom.colorUniform.value.set(hex);

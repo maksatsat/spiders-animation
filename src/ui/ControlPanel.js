@@ -1,4 +1,4 @@
-import { state, setState, setToggle, onStateChange, MODES } from '../state/SimulationState.js';
+import { state, setState, setToggle, toggleFilterBand, setFilterBands, onStateChange, MODES } from '../state/SimulationState.js';
 import { SYSTEM, MODE_TARGETS } from '../physics/systemParams.js';
 import { getTelemetry, TELEMETRY_WINDOW_SECONDS } from '../physics/telemetry.js';
 import { gammaFlux, xrayFlux, radioFlux, opticalFlux, sampleLightCurve } from '../physics/lightCurves.js';
@@ -46,8 +46,8 @@ const TOGGLES = [
   {
     key: 'gammaBeam',
     label: 'Gamma-ray beam',
-    labelByMode: { 2: 'Pulsar wind', [SWITCHING_MODE]: 'Pulsar wind' },
-    modes: [0, 2, SWITCHING_MODE],
+    labelByMode: { 1: 'Propeller shock', 2: 'Pulsar wind', [SWITCHING_MODE]: 'Pulsar wind' },
+    modes: [0, 1, 2, SWITCHING_MODE],
   },
   { key: 'fireLayer', label: 'Ablated material', modes: [0, 1, 2, SWITCHING_MODE] },
   { key: 'intrabinaryShock', label: 'Intrabinary shock', modes: [0] },
@@ -245,11 +245,17 @@ export function mountControlPanel(root) {
   const filterPanel = el('div', 'panel panel--filter');
   filterPanel.appendChild(el('div', 'panel-label', 'Filter'));
   const filterRow = el('div', 'button-row');
+  const allFilterBtn = el('button', 'btn', 'All');
+  allFilterBtn.dataset.band = 'all';
+  allFilterBtn.addEventListener('click', () => {
+    setFilterBands(FILTER_BANDS.map((b) => b.id));
+  });
+  filterRow.appendChild(allFilterBtn);
   FILTER_BANDS.forEach((b) => {
     const btn = el('button', 'btn', b.label);
     btn.dataset.band = b.id;
     btn.addEventListener('click', () => {
-      setState({ filterBand: state.filterBand === b.id ? null : b.id });
+      toggleFilterBand(b.id);
     });
     filterRow.appendChild(btn);
   });
@@ -513,7 +519,13 @@ export function mountControlPanel(root) {
     });
     mainSlider.value = String(state.mode);
     viewRow.querySelectorAll('.btn').forEach((b) => b.classList.toggle('active', b.dataset.view === state.view));
-    filterRow.querySelectorAll('.btn').forEach((b) => b.classList.toggle('active', b.dataset.band === state.filterBand));
+    filterRow.querySelectorAll('.btn').forEach((b) => {
+      const isActive =
+        b.dataset.band === 'all'
+          ? FILTER_BANDS.every((band) => state.filterBands.has(band.id))
+          : state.filterBands.has(b.dataset.band);
+      b.classList.toggle('active', isActive);
+    });
     toggleRows.forEach(({ def, row, labelSpan }) => {
       row.style.display = def.modes.includes(state.mode) ? '' : 'none';
       labelSpan.textContent = labelFor(def, state.mode);
