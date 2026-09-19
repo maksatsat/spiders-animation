@@ -2,6 +2,8 @@
 // at this scale — every consumer (scene layer, UI layer) just reads `state`
 // directly each frame and subscribes for the rarer discrete events (view changes).
 
+import { FILTER_BANDS } from '../physics/emissionFilter.js';
+
 // The three observed states a transitional millisecond pulsar (transformer)
 // switches between. This is the primary "story" slider the user drives.
 export const MODES = [
@@ -21,7 +23,10 @@ export const state = {
   orbitalCycle: 0, // unbounded orbital cycle count (fractional), mirrors SceneApp's orbit clock
   irradiationLevel: 1, // 0..1, rotation-powered-only slider: 0 = uniform dark companion, 1 = irradiated as normal
   phaseResetToken: 0, // bumped by the "reset to phase 0" camera action; SceneApp watches for changes
-  filterBands: new Set(), // subset of 'radio' | 'optical' | 'xray' | 'gamma' — emission-band highlight filter; empty = no filter
+  // Subset of 'radio' | 'optical' | 'xray' | 'gamma' — emission-band highlight
+  // filter. Starts with every band on (see SceneApp: all-bands-selected reads
+  // the same as no filter at all, so everything is visible from the start).
+  filterBands: new Set(FILTER_BANDS.map((b) => b.id)),
   toggles: {
     radioBeam: true,
     gammaBeam: true,
