@@ -197,20 +197,20 @@ export async function createSceneApp(canvas) {
     const t = state.toggles;
 
     // Emission-band filter: anything not part of any selected band's
-    // highlighted sources for the current mode fades to grayscale. The
-    // ablated wind never belongs to any individual band, so it would
-    // otherwise always dim while some filter is active — but with every band
-    // selected there's nothing left to filter *out*, so that reads the same
-    // as no filter at all and everything (ablated wind included) stays lit.
-    // Multiple bands can be selected at once, so a source stays lit as long
-    // as it's highlighted by at least one of them.
+    // highlighted sources for the current mode fades to grayscale. With
+    // every band selected there's nothing left to filter *out*, so that
+    // reads the same as no filter at all and everything (including the
+    // ablated wind, which never belongs to any individual band) stays lit.
+    // With none selected, nothing is highlighted, so everything grays out —
+    // that falls out of the same rule without a special case. Multiple bands
+    // can be selected at once, so a source stays lit as long as it's
+    // highlighted by at least one of them.
     const allBandsSelected = FILTER_BANDS.every((b) => state.filterBands.has(b.id));
-    const filterActive = state.filterBands.size > 0 && !allBandsSelected;
     Object.keys(smoothed.dim).forEach((key) => {
       const dimTarget =
         key === 'ablatedWind'
-          ? filterActive
-          : filterActive && !isHighlighted(state.filterBands, effectiveMode, key);
+          ? !allBandsSelected
+          : !allBandsSelected && !isHighlighted(state.filterBands, effectiveMode, key);
       smoothed.dim[key] = damp(smoothed.dim[key], dimTarget ? 1 : 0, dt, 4);
     });
     neutronStar.uniforms.coreDim.value = smoothed.dim.neutronStarBody;
