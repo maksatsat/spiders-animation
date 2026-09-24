@@ -1,7 +1,6 @@
 # Spider Pulsar
 
-An interactive 3D visualization of a "transitional millisecond pulsar" (a
-"spider"/"transformer" system), loosely modeled on **PSR J1023+0038**: a
+An interactive 3D visualization of a transitional millisecond pulsar, loosely modeled on **PSR J1023+0038**: a
 neutron star and a low-mass companion star that periodically switches
 between a rotation-powered radio pulsar state and an accretion-powered
 X-ray state.
